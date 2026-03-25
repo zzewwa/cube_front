@@ -1,0 +1,178 @@
+{% extends 'main/base.html' %}
+
+{% block title %}Главная | My Cube{% endblock %}
+{% block body_class %}dashboard-body{% endblock %}
+
+{% block content %}
+<div class="dashboard-shell" data-menu-root>
+    <div class="scene-backdrop" aria-hidden="true">
+        <canvas class="cube-canvas" aria-label="Заглушка под 3D кубик"></canvas>
+    </div>
+
+    <aside class="side-panel" data-side-panel>
+        <div class="side-panel__header">
+            <p class="side-panel__title">Навигация</p>
+            <button class="side-panel__close" type="button" aria-label="Закрыть меню" data-menu-close>×</button>
+        </div>
+        <nav class="side-panel__nav">
+            <a href="#">Сборка кубика</a>
+            <a href="#">Управление</a>
+            <a href="#">Комнаты</a>
+            <a href="#">Обучение</a>
+        </nav>
+        <a class="side-panel__logout" href="{% url 'logout' %}">Выйти</a>
+    </aside>
+
+    <button class="menu-toggle" type="button" aria-label="Открыть меню" aria-expanded="false" data-menu-toggle>
+        <span class="menu-grid" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+        </span>
+    </button>
+
+    <div class="menu-overlay" data-menu-overlay></div>
+
+        <button class="settings-toggle" id="settings-toggle" type="button" aria-label="Настройки">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+        </button>
+
+        <div class="settings-panel" id="settings-panel" aria-hidden="true">
+            <div class="settings-panel__header">
+                <p class="settings-panel__title">Настройки</p>
+                <button class="settings-panel__close" id="settings-close" type="button" aria-label="Закрыть настройки">×</button>
+            </div>
+            <div class="settings-panel__body">
+
+                <section class="cfg-section">
+                    <h3 class="cfg-section__title">Сцена</h3>
+                    <div class="cfg-row cfg-row--inline">
+                        <span class="cfg-label">Цвет фона</span>
+                        <input type="color" class="cfg-color" id="cfg-bg-color" value="#2c3640">
+                    </div>
+                    <div class="cfg-row">
+                        <span class="cfg-label">Готовые цвета</span>
+                        <div class="cfg-presets" id="cfg-bg-presets">
+                            <button type="button" class="cfg-preset is-active" data-bg-preset="#2c3640" title="База" aria-label="База" style="--preset:#2c3640"></button>
+                            <button type="button" class="cfg-preset" data-bg-preset="#2E3440" title="Nord Polar Night" aria-label="Nord Polar Night" style="--preset:#2E3440"></button>
+                            <button type="button" class="cfg-preset" data-bg-preset="#0F172A" title="Navy" aria-label="Navy" style="--preset:#0F172A"></button>
+                            <button type="button" class="cfg-preset" data-bg-preset="#1E293B" title="Slate" aria-label="Slate" style="--preset:#1E293B"></button>
+                            <button type="button" class="cfg-preset" data-bg-preset="#1B4332" title="Forest" aria-label="Forest" style="--preset:#1B4332"></button>
+                            <button type="button" class="cfg-preset" data-bg-preset="#3E2C41" title="Plum" aria-label="Plum" style="--preset:#3E2C41"></button>
+                            <button type="button" class="cfg-preset" data-bg-preset="#4A2C2A" title="Cocoa" aria-label="Cocoa" style="--preset:#4A2C2A"></button>
+                            <button type="button" class="cfg-preset" data-bg-preset="#0B3C49" title="Teal" aria-label="Teal" style="--preset:#0B3C49"></button>
+                        </div>
+                    </div>
+                    <div class="cfg-row">
+                        <label class="cfg-label" for="cfg-fog">Туман <span class="cfg-value" id="cfg-fog-val">0.025</span></label>
+                        <input type="range" class="cfg-range" id="cfg-fog" min="0" max="0.1" step="0.001" value="0.025">
+                    </div>
+                </section>
+
+                <section class="cfg-section">
+                    <h3 class="cfg-section__title">Освещение</h3>
+                    <div class="cfg-row cfg-row--inline">
+                        <span class="cfg-label">Цвет окружения</span>
+                        <input type="color" class="cfg-color" id="cfg-ambient-color" value="#f1efe8">
+                    </div>
+                    <div class="cfg-row">
+                        <label class="cfg-label" for="cfg-ambient-int">Яркость окружения <span class="cfg-value" id="cfg-ambient-int-val">0.5</span></label>
+                        <input type="range" class="cfg-range" id="cfg-ambient-int" min="0" max="3" step="0.05" value="0.5">
+                    </div>
+                    <div class="cfg-row cfg-row--inline">
+                        <span class="cfg-label">Цвет подсветки</span>
+                        <input type="color" class="cfg-color" id="cfg-rim-color" value="#ffffff">
+                    </div>
+                    <div class="cfg-row">
+                        <label class="cfg-label" for="cfg-rim-int">Яркость подсветки <span class="cfg-value" id="cfg-rim-int-val">50</span></label>
+                        <input type="range" class="cfg-range" id="cfg-rim-int" min="0" max="200" step="1" value="50">
+                    </div>
+                </section>
+
+                <section class="cfg-section">
+                    <h3 class="cfg-section__title">Материал граней</h3>
+                    <div class="cfg-row">
+                        <label class="cfg-label" for="cfg-metalness">Металличность <span class="cfg-value" id="cfg-metalness-val">0.2</span></label>
+                        <input type="range" class="cfg-range" id="cfg-metalness" min="0" max="1" step="0.01" value="0.2">
+                    </div>
+                    <div class="cfg-row">
+                        <label class="cfg-label" for="cfg-roughness">Шероховатость <span class="cfg-value" id="cfg-roughness-val">0.92</span></label>
+                        <input type="range" class="cfg-range" id="cfg-roughness" min="0" max="1" step="0.01" value="0.92">
+                    </div>
+                </section>
+
+                <section class="cfg-section">
+                    <h3 class="cfg-section__title">Форма кубиков</h3>
+                    <div class="cfg-row cfg-row--inline">
+                        <span class="cfg-label">Скруглённые рёбра</span>
+                        <label class="cfg-toggle">
+                            <input type="checkbox" id="cfg-rounded" checked>
+                            <span class="cfg-toggle__track"></span>
+                        </label>
+                    </div>
+                    <div class="cfg-row" id="cfg-radius-row">
+                        <label class="cfg-label" for="cfg-radius">Радиус скругления <span class="cfg-value" id="cfg-radius-val">0.12</span></label>
+                        <input type="range" class="cfg-range" id="cfg-radius" min="0.01" max="0.25" step="0.01" value="0.12">
+                    </div>
+                </section>
+
+                <section class="cfg-section">
+                    <h3 class="cfg-section__title">Анимация</h3>
+                    <div class="cfg-row cfg-row--inline">
+                        <span class="cfg-label">Показывать развёртку</span>
+                        <label class="cfg-toggle">
+                            <input type="checkbox" id="cfg-cube-net" checked>
+                            <span class="cfg-toggle__track"></span>
+                        </label>
+                    </div>
+                    <div class="cfg-row cfg-row--inline">
+                        <span class="cfg-label">Вращать камеру в настройках</span>
+                        <label class="cfg-toggle">
+                            <input type="checkbox" id="cfg-settings-autorotate" checked>
+                            <span class="cfg-toggle__track"></span>
+                        </label>
+                    </div>
+                    <div class="cfg-row">
+                        <label class="cfg-label" for="cfg-speed">Скорость поворота <span class="cfg-value" id="cfg-speed-val">нормально</span></label>
+                        <input type="range" class="cfg-range" id="cfg-speed" min="5" max="60" step="1" value="30">
+                    </div>
+                </section>
+
+            </div>
+        </div>
+
+    <header class="dashboard-topbar">
+        <button class="profile-button" type="button" aria-label="Профиль пользователя">
+            {{ request.user.username|first|upper }}
+        </button>
+        <div class="dashboard-timer">
+            <div class="timer-icon"></div>
+            <span class="dashboard-timer__value">00:00:00</span>
+        </div>
+    </header>
+
+    <footer class="dashboard-footer">
+        <p>Статус: Собран</p>
+    </footer>
+
+    <div class="cube-net-widget" id="cube-net-widget" aria-hidden="false">
+        <div class="cube-net-grid">
+            <div class="cube-net-face cube-net-face--u" data-face="u"></div>
+            <div class="cube-net-face cube-net-face--l" data-face="l"></div>
+            <div class="cube-net-face cube-net-face--f" data-face="f"></div>
+            <div class="cube-net-face cube-net-face--r" data-face="r"></div>
+            <div class="cube-net-face cube-net-face--b" data-face="b"></div>
+            <div class="cube-net-face cube-net-face--d" data-face="d"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}

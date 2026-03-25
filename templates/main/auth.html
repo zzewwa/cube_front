@@ -1,0 +1,75 @@
+{% extends 'main/base.html' %}
+
+{% block title %}{{ title }} | My Cube{% endblock %}
+{% block body_class %}auth-body{% endblock %}
+
+{% block content %}
+<main class="auth-layout">
+    <section class="auth-brand">
+        <div class="brand-mark" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+        <p class="brand-kicker">MY CUBE</p>
+        <h1>Соревновательная платформа по сборке кубика Рубика</h1>
+        <p class="brand-copy">Пока это базовый каркас интерфейса: авторизация, регистрация и главная страница, на которую дальше можно наслаивать 3D, таймеры и игровые режимы.</p>
+    </section>
+
+    <section class="auth-card-wrap">
+        <div class="auth-card">
+            <p class="auth-card-kicker">{{ title }}</p>
+            <h2>{{ subtitle }}</h2>
+            <form method="post" class="auth-form" novalidate>
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                    <div class="form-errors">
+                        {% for error in form.non_field_errors %}
+                            <p>{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                {% for field in form %}
+                    <div class="field-group">
+                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.name == 'password1' and form.password_requirements %}
+                            <div class="password-hints" data-password-hints>
+                                <p>Требования к паролю:</p>
+                                <ul>
+                                    <li data-password-rule="length">Минимум 8 символов</li>
+                                    <li data-password-rule="uppercase">Хотя бы одна заглавная буква</li>
+                                    <li data-password-rule="lowercase">Хотя бы одна строчная буква</li>
+                                    <li data-password-rule="digit">Хотя бы одна цифра</li>
+                                </ul>
+                            </div>
+                        {% endif %}
+                        {% if field.errors %}
+                            <div class="field-error">
+                                {% for error in field.errors %}
+                                    <p>{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+
+                <button type="submit" class="primary-button">{{ submit_label }}</button>
+            </form>
+
+            <p class="auth-switch">
+                {{ switch_label }}
+                <a href="{% url switch_url %}">{{ switch_text }}</a>
+            </p>
+        </div>
+    </section>
+</main>
+{% endblock %}
