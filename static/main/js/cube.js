@@ -27,6 +27,8 @@ export class RubiksCube {
         this.cubeMeshList = [];
         this.cubeNetVisible = true;
         this.cubeNetWidget = null;
+        this.statusElement = null;
+        this._lastSolvedState = null;
         this.cubeNetStickers = {
             u: [],
             l: [],
@@ -274,6 +276,7 @@ export class RubiksCube {
         
         this.init();
         this.initCubeNetWidget();
+        this.statusElement = document.getElementById('cube-status');
 
         try {
             this.restoreCubeStateFromCookie();
@@ -548,11 +551,24 @@ export class RubiksCube {
         }
     }
 
-    updateCubeNet() {
-        if (!this.cubeNetVisible || !this.cubeNetWidget) {
+    isCubeSolved(faceState) {
+        return Object.values(faceState).every((face) => {
+            const first = face[0];
+            return first !== 'h' && face.every((s) => s === first);
+        });
+    }
+
+    updateSolvedStatus(isSolved) {
+        if (!this.statusElement || this._lastSolvedState === isSolved) {
             return;
         }
+        this._lastSolvedState = isSolved;
+        this.statusElement.textContent = isSolved ? 'Собран' : 'Не собран';
+        this.statusElement.classList.toggle('is-solved', isSolved);
+        this.statusElement.classList.toggle('is-unsolved', !isSolved);
+    }
 
+    updateCubeNet() {
         const maxCoord = Math.trunc(this.config.cube.size / 2);
         const faceState = {
             u: Array(9).fill('h'),
@@ -593,6 +609,12 @@ export class RubiksCube {
 
                 faceState[face.key][index] = materials[face.materialIndex].name;
             }
+        }
+
+        this.updateSolvedStatus(this.isCubeSolved(faceState));
+
+        if (!this.cubeNetVisible || !this.cubeNetWidget) {
+            return;
         }
 
         for (const faceKey of Object.keys(faceState)) {

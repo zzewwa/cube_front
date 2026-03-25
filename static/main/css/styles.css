@@ -429,6 +429,40 @@ body.is-ready .dashboard-footer {
     margin: 0;
 }
 
+.cube-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    transition: color 0.4s ease;
+}
+
+.cube-status::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    transition: background-color 0.4s ease, box-shadow 0.4s ease;
+}
+
+.cube-status.is-solved {
+    color: var(--accent);
+}
+
+.cube-status.is-solved::before {
+    background: #6ee07f;
+    box-shadow: 0 0 6px rgba(110, 224, 127, 0.7);
+}
+
+.cube-status.is-unsolved {
+    color: var(--text-soft);
+}
+
+.cube-status.is-unsolved::before {
+    background: rgba(255, 255, 255, 0.2);
+    box-shadow: none;
+}
+
 .cube-net-widget {
     position: fixed;
     left: 16px;
