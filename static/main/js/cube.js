@@ -606,6 +606,10 @@ export class RubiksCube {
             cube.position.set(x, y, z);
         }
 
+        if (this._metalness !== undefined) {
+            this.applyMaterialSettings(this._metalness, this._roughness);
+        }
+
         this._lastSolvedState = null;
     }
 
@@ -1014,6 +1018,8 @@ export class RubiksCube {
     }
 
     applyMaterialSettings(metalness, roughness) {
+        this._metalness = metalness;
+        this._roughness = roughness;
         for (const materials of this.materialsByObjectId.values()) {
             for (const mat of materials) {
                 mat.metalness = metalness;
