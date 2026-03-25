@@ -433,7 +433,13 @@ body.is-ready .dashboard-footer {
     display: inline-flex;
     align-items: center;
     gap: 7px;
-    transition: color 0.4s ease;
+    cursor: pointer;
+    transition: color 0.4s ease, opacity 0.2s ease;
+    user-select: none;
+}
+
+.cube-status:hover {
+    opacity: 0.75;
 }
 
 .cube-status::before {

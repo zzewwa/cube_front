@@ -277,6 +277,9 @@ export class RubiksCube {
         this.init();
         this.initCubeNetWidget();
         this.statusElement = document.getElementById('cube-status');
+        if (this.statusElement) {
+            this.statusElement.addEventListener('click', () => this.resetCube());
+        }
 
         try {
             this.restoreCubeStateFromCookie();
@@ -556,6 +559,54 @@ export class RubiksCube {
             const first = face[0];
             return first !== 'h' && face.every((s) => s === first);
         });
+    }
+
+    resetCube() {
+        // Cancel any active general rotation
+        if (this.activeGeneralRotation) {
+            for (const cube of [...this.activeGeneralRotation.group.children]) {
+                this.activeGeneralRotation.group.remove(cube);
+                this.scene.add(cube);
+            }
+            this.scene.remove(this.activeGeneralRotation.group);
+            this.activeGeneralRotation = null;
+        }
+
+        // Cancel any active row rotations
+        for (const keyCode of Object.keys(this.activeRowRotations)) {
+            const rot = this.activeRowRotations[keyCode];
+            if (rot) {
+                for (const cube of [...rot.group.children]) {
+                    rot.group.remove(cube);
+                    this.scene.add(cube);
+                }
+                this.scene.remove(rot.group);
+                this.activeRowRotations[keyCode] = null;
+            }
+        }
+
+        this.generalQueue = [];
+        this.pendingRowQueue = [];
+        this.undoHistory = [];
+
+        const maxCoord = Math.trunc(this.config.cube.size / 2);
+        const minCoord = -maxCoord;
+
+        for (const cube of this.cubeMeshList) {
+            const pos = this.position_of_cubes.get(cube.name);
+            if (!pos) continue;
+            const [x, y, z] = pos;
+
+            const oldMaterials = this.materialsByObjectId.get(cube.id) || cube.material;
+            for (const mat of oldMaterials) mat.dispose();
+
+            const newMaterials = this.createCubieMaterials(this.materialPalette, x, y, z, minCoord, maxCoord);
+            cube.material = newMaterials;
+            this.materialsByObjectId.set(cube.id, newMaterials);
+            cube.position.set(x, y, z);
+        }
+
+        this._lastSolvedState = null;
     }
 
     updateSolvedStatus(isSolved) {
