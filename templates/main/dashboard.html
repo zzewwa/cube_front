@@ -10,17 +10,97 @@
     </div>
 
     <aside class="side-panel" data-side-panel>
-        <div class="side-panel__header">
-            <p class="side-panel__title">Навигация</p>
-            <button class="side-panel__close" type="button" aria-label="Закрыть меню" data-menu-close>×</button>
+
+        <div class="side-view side-view--nav">
+            <div class="side-panel__header">
+                <p class="side-panel__title">Навигация</p>
+                <button class="side-panel__close" type="button" aria-label="Закрыть меню" data-menu-close>×</button>
+            </div>
+            <nav class="side-panel__nav">
+                <a href="#">Сборка кубика</a>
+                <a href="#" data-nav-open="controls">Управление</a>
+                <a href="#">Комнаты</a>
+                <a href="#">Обучение</a>
+            </nav>
+            <a class="side-panel__logout" href="{% url 'logout' %}">Выйти</a>
         </div>
-        <nav class="side-panel__nav">
-            <a href="#">Сборка кубика</a>
-            <a href="#">Управление</a>
-            <a href="#">Комнаты</a>
-            <a href="#">Обучение</a>
-        </nav>
-        <a class="side-panel__logout" href="{% url 'logout' %}">Выйти</a>
+
+        <div class="side-view side-view--controls">
+            <div class="side-panel__header">
+                <button class="side-view__back" type="button" data-side-back>← Навигация</button>
+                <button class="side-panel__close" type="button" aria-label="Закрыть меню" data-menu-close>×</button>
+            </div>
+            <div class="side-view__body">
+                <p class="side-view__heading">Управление</p>
+
+                <section class="ctrl-section">
+                    <p class="ctrl-section__title">Весь кубик</p>
+                    <div class="ctrl-group">
+                        <div class="ctrl-row">
+                            <span class="ctrl-desc">Вперёд / назад</span>
+                            <span class="ctrl-keys"><kbd>↑</kbd><kbd>↓</kbd></span>
+                        </div>
+                        <div class="ctrl-row">
+                            <span class="ctrl-desc">Влево / вправо</span>
+                            <span class="ctrl-keys"><kbd>←</kbd><kbd>→</kbd></span>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="ctrl-section">
+                    <p class="ctrl-section__title">Слои</p>
+                    <p class="ctrl-note ctrl-note--top">⇧ + клавиша — обратное направление</p>
+                    <div class="ctrl-group">
+                        <div class="ctrl-row">
+                            <span class="ctrl-desc">Ось X (лево → право)</span>
+                            <span class="ctrl-keys"><kbd>Q</kbd><kbd>W</kbd><kbd>E</kbd></span>
+                        </div>
+                        <div class="ctrl-row">
+                            <span class="ctrl-desc">Ось Y (низ → верх)</span>
+                            <span class="ctrl-keys"><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span>
+                        </div>
+                        <div class="ctrl-row">
+                            <span class="ctrl-desc">Ось Z (перед → зад)</span>
+                            <span class="ctrl-keys"><kbd>V</kbd><kbd>F</kbd><kbd>R</kbd></span>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="ctrl-section">
+                    <p class="ctrl-section__title">Прочее</p>
+                    <div class="ctrl-group">
+                        <div class="ctrl-row">
+                            <span class="ctrl-desc">Отменить ход</span>
+                            <span class="ctrl-keys"><kbd>Ctrl</kbd><span class="ctrl-plus">+</span><kbd>Z</kbd></span>
+                        </div>
+                        <div class="ctrl-row">
+                            <span class="ctrl-desc">Настройки</span>
+                            <span class="ctrl-keys"><kbd>X</kbd></span>
+                        </div>
+                        <div class="ctrl-row">
+                            <span class="ctrl-desc">Сброс кубика</span>
+                            <span class="ctrl-caption">клик по статусу ↙</span>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="ctrl-section">
+                    <p class="ctrl-section__title">Мышь</p>
+                    <div class="ctrl-group">
+                        <div class="ctrl-row">
+                            <span class="ctrl-desc">Вращение камеры</span>
+                            <span class="ctrl-caption">перетаскивание</span>
+                        </div>
+                        <div class="ctrl-row">
+                            <span class="ctrl-desc">Зум</span>
+                            <span class="ctrl-caption">колесо прокрутки</span>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </div>
+
     </aside>
 
     <button class="menu-toggle" type="button" aria-label="Открыть меню" aria-expanded="false" data-menu-toggle>

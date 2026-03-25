@@ -117,6 +117,7 @@ const initApp = () => {
             return;
         }
         panel.classList.toggle('is-open', isOpen);
+        if (!isOpen) panel.classList.remove('showing-controls');
         overlay.classList.toggle('is-visible', isOpen || settingsPanel?.classList.contains('is-open'));
         toggle.setAttribute('aria-expanded', String(isOpen));
     };
@@ -141,6 +142,22 @@ const initApp = () => {
 
     closeButton?.addEventListener('click', () => {
         setMenuState(false);
+    });
+
+    panel?.addEventListener('click', (e) => {
+        const navOpenBtn = e.target.closest('[data-nav-open]');
+        if (navOpenBtn) {
+            e.preventDefault();
+            panel.classList.add(`showing-${navOpenBtn.dataset.navOpen}`);
+            return;
+        }
+        if (e.target.closest('[data-side-back]')) {
+            panel.classList.remove('showing-controls');
+            return;
+        }
+        if (e.target.closest('[data-menu-close]')) {
+            setMenuState(false);
+        }
     });
 
     settingsToggle?.addEventListener('click', () => {
