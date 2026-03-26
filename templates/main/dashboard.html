@@ -213,7 +213,14 @@
                             <button type="button" class="cfg-preset" data-bg-preset="#0B3C49" title="Teal" aria-label="Teal" style="--preset:#0B3C49"></button>
                         </div>
                     </div>
-                    <div class="cfg-row">
+                    <div class="cfg-row cfg-row--inline">
+                        <span class="cfg-label">Туман</span>
+                        <label class="cfg-toggle">
+                            <input type="checkbox" id="cfg-fog-enabled" checked>
+                            <span class="cfg-toggle__track"></span>
+                        </label>
+                    </div>
+                    <div class="cfg-row" id="cfg-fog-row">
                         <label class="cfg-label" for="cfg-fog">Туман <span class="cfg-value" id="cfg-fog-val">0.025</span></label>
                         <input type="range" class="cfg-range" id="cfg-fog" min="0" max="0.1" step="0.001" value="0.025">
                     </div>
@@ -242,18 +249,41 @@
                 <section class="cfg-section">
                     <h3 class="cfg-section__title">Материал граней</h3>
                     <div class="cfg-row">
-                        <label class="cfg-label" for="cfg-metalness">Металличность <span class="cfg-value" id="cfg-metalness-val">0.2</span></label>
-                        <input type="range" class="cfg-range" id="cfg-metalness" min="0" max="1" step="0.01" value="0.2">
+                        <label class="cfg-label" for="cfg-skin">Скин</label>
+                        <select class="cfg-select" id="cfg-skin">
+                            <option value="classic">Classic</option>
+                            <option value="lantern">Lantern</option>
+                            <option value="spheres">Spheres</option>
+                        </select>
                     </div>
-                    <div class="cfg-row">
-                        <label class="cfg-label" for="cfg-roughness">Шероховатость <span class="cfg-value" id="cfg-roughness-val">0.92</span></label>
-                        <input type="range" class="cfg-range" id="cfg-roughness" min="0" max="1" step="0.01" value="0.92">
+                    <div class="cfg-row" id="cfg-lantern-opacity-row">
+                        <label class="cfg-label" for="cfg-lantern-opacity">Прозрачность Lantern <span class="cfg-value" id="cfg-lantern-opacity-val">0.58</span></label>
+                        <input type="range" class="cfg-range" id="cfg-lantern-opacity" min="0.20" max="0.90" step="0.01" value="0.58">
                     </div>
-                </section>
-
-                <section class="cfg-section">
-                    <h3 class="cfg-section__title">Форма кубиков</h3>
-                    <div class="cfg-row cfg-row--inline">
+                    <div class="cfg-row" id="cfg-lantern-light-row">
+                        <label class="cfg-label" for="cfg-lantern-light">Яркость огонька <span class="cfg-value" id="cfg-lantern-light-val">0.52</span></label>
+                        <input type="range" class="cfg-range" id="cfg-lantern-light" min="0.05" max="1.80" step="0.01" value="0.52">
+                    </div>
+                    <div class="cfg-row" id="cfg-lantern-pulse-row">
+                        <label class="cfg-label" for="cfg-lantern-pulse-speed">Скорость пульсации <span class="cfg-value" id="cfg-lantern-pulse-speed-val">1.0</span></label>
+                        <input type="range" class="cfg-range" id="cfg-lantern-pulse-speed" min="0.1" max="4.0" step="0.1" value="1.0">
+                    </div>
+                    <div class="cfg-row" id="cfg-lantern-size-row">
+                        <label class="cfg-label" for="cfg-lantern-size">Размер огонька <span class="cfg-value" id="cfg-lantern-size-val">0.16</span></label>
+                        <input type="range" class="cfg-range" id="cfg-lantern-size" min="0.08" max="0.40" step="0.01" value="0.16">
+                    </div>
+                    <div class="cfg-row cfg-row--inline" id="cfg-lantern-embers-row">
+                        <span class="cfg-label">Показывать огоньки</span>
+                        <label class="cfg-toggle">
+                            <input type="checkbox" id="cfg-lantern-embers" checked>
+                            <span class="cfg-toggle__track"></span>
+                        </label>
+                    </div>
+                    <div class="cfg-row" id="cfg-spheres-radius-row">
+                        <label class="cfg-label" for="cfg-spheres-radius">Размер сфер <span class="cfg-value" id="cfg-spheres-radius-val">0.56</span></label>
+                        <input type="range" class="cfg-range" id="cfg-spheres-radius" min="0.42" max="0.72" step="0.01" value="0.56">
+                    </div>
+                    <div class="cfg-row cfg-row--inline" id="cfg-rounded-row">
                         <span class="cfg-label">Скруглённые рёбра</span>
                         <label class="cfg-toggle">
                             <input type="checkbox" id="cfg-rounded" checked>
@@ -263,6 +293,14 @@
                     <div class="cfg-row" id="cfg-radius-row">
                         <label class="cfg-label" for="cfg-radius">Радиус скругления <span class="cfg-value" id="cfg-radius-val">0.12</span></label>
                         <input type="range" class="cfg-range" id="cfg-radius" min="0.01" max="0.25" step="0.01" value="0.12">
+                    </div>
+                    <div class="cfg-row">
+                        <label class="cfg-label" for="cfg-metalness">Металличность <span class="cfg-value" id="cfg-metalness-val">0.2</span></label>
+                        <input type="range" class="cfg-range" id="cfg-metalness" min="0" max="1" step="0.01" value="0.2">
+                    </div>
+                    <div class="cfg-row">
+                        <label class="cfg-label" for="cfg-roughness">Шероховатость <span class="cfg-value" id="cfg-roughness-val">0.92</span></label>
+                        <input type="range" class="cfg-range" id="cfg-roughness" min="0" max="1" step="0.01" value="0.92">
                     </div>
                 </section>
 

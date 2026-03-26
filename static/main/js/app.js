@@ -23,6 +23,20 @@ const initApp = () => {
     let zoomMin = savedSettings.zoomMin ?? 5;
     let zoomMax = savedSettings.zoomMax ?? 30;
     let debugFpsEnabled = savedSettings.debugFpsEnabled ?? false;
+    let fogEnabled = savedSettings.fogEnabled ?? true;
+    let skinId = savedSettings.skinId ?? 'classic';
+    let lanternOpacity = savedSettings.lanternOpacity ?? 0.58;
+    let lanternLightIntensity = savedSettings.lanternLightIntensity ?? 0.52;
+    let lanternPulseSpeed = savedSettings.lanternPulseSpeed ?? 1.0;
+    let lanternEmberSize = savedSettings.lanternEmberSize ?? 0.16;
+    let lanternShowEmbers = savedSettings.lanternShowEmbers ?? true;
+    let spheresRadius = savedSettings.spheresRadius ?? 0.56;
+    if (skinId === 'glow') {
+        skinId = 'lantern';
+    }
+    if (skinId === 'matte') {
+        skinId = 'classic';
+    }
 
     if (sceneBackdrop) {
         const cubeCookies = new CookieCube();
@@ -51,7 +65,15 @@ const initApp = () => {
                 zoomSmoothSpeed,
                 zoomMin,
                 zoomMax,
-                debugFpsEnabled
+                debugFpsEnabled,
+                fogEnabled,
+                skinId,
+                lanternOpacity,
+                lanternLightIntensity,
+                lanternPulseSpeed,
+                lanternEmberSize,
+                lanternShowEmbers,
+                spheresRadius
             });
         };
 
@@ -131,6 +153,14 @@ const initApp = () => {
     setControlValue('cfg-speed', savedSettings.speed);
     setControlValue('cfg-settings-autorotate', savedSettings.settingsAutoRotateEnabled);
     setControlValue('cfg-cube-net', savedSettings.cubeNetVisible);
+    setControlValue('cfg-lantern-opacity', lanternOpacity);
+    setControlValue('cfg-lantern-light', lanternLightIntensity);
+    setControlValue('cfg-lantern-pulse-speed', lanternPulseSpeed);
+    setControlValue('cfg-lantern-size', lanternEmberSize);
+    setControlValue('cfg-lantern-embers', lanternShowEmbers);
+    setControlValue('cfg-spheres-radius', spheresRadius);
+    setControlValue('cfg-fog-enabled', fogEnabled);
+    setControlValue('cfg-skin', skinId);
     setControlValue('cfg-rotate-speed', rotateSensitivity);
     setControlValue('cfg-zoom-step', zoomStep);
     setControlValue('cfg-zoom-smooth-speed', zoomSmoothSpeed);
@@ -288,11 +318,17 @@ const initApp = () => {
         cube.applyKeymap(keymap);
         cube.applyRotateSensitivity(rotateSensitivity);
         cube.applyZoomSettings(zoomMode, zoomStep, zoomSmoothSpeed, zoomMin, zoomMax);
+        cube.applyLanternSettings(lanternOpacity, lanternLightIntensity, lanternPulseSpeed, lanternEmberSize, lanternShowEmbers);
+        cube.applySpheresSettings(spheresRadius);
         cube.setDebugOverlayEnabled(debugFpsEnabled);
+        cube.setFogEnabled(fogEnabled);
+        cube.applySkin(skinId);
     };
 
     let bgColor = savedSettings.bgColor ?? '#2c3640';
     let fogDensity = savedSettings.fogDensity ?? 0.025;
+    const fogRow = document.getElementById('cfg-fog-row');
+    const fogRange = document.getElementById('cfg-fog');
     const bgColorInput = document.getElementById('cfg-bg-color');
     const bgPresetButtons = Array.from(document.querySelectorAll('[data-bg-preset]'));
 
@@ -329,6 +365,23 @@ const initApp = () => {
         fogDensity = value;
         getCube()?.applySceneSettings(bgColor, fogDensity);
     }, (value) => value.toFixed(3));
+
+    const syncFogUi = () => {
+        if (fogRow) {
+            fogRow.style.opacity = fogEnabled ? '1' : '0.55';
+        }
+        if (fogRange) {
+            fogRange.disabled = !fogEnabled;
+        }
+    };
+
+    onCheck('cfg-fog-enabled', (value) => {
+        fogEnabled = value;
+        getCube()?.setFogEnabled(value);
+        syncFogUi();
+    });
+
+    syncFogUi();
 
     let ambientColor = savedSettings.ambientColor ?? '#f1efe8';
     let ambientIntensity = savedSettings.ambientIntensity ?? 0.5;
@@ -376,6 +429,73 @@ const initApp = () => {
         applyMaterials();
     }, (value) => value.toFixed(2));
 
+    onRange('cfg-lantern-opacity', 'cfg-lantern-opacity-val', (value) => {
+        lanternOpacity = value;
+        getCube()?.applyLanternSettings(lanternOpacity, lanternLightIntensity, lanternPulseSpeed, lanternEmberSize, lanternShowEmbers);
+    }, (value) => value.toFixed(2));
+
+    onRange('cfg-lantern-light', 'cfg-lantern-light-val', (value) => {
+        lanternLightIntensity = value;
+        getCube()?.applyLanternSettings(lanternOpacity, lanternLightIntensity, lanternPulseSpeed, lanternEmberSize, lanternShowEmbers);
+    }, (value) => value.toFixed(2));
+
+    onRange('cfg-lantern-pulse-speed', 'cfg-lantern-pulse-speed-val', (value) => {
+        lanternPulseSpeed = value;
+        getCube()?.applyLanternSettings(lanternOpacity, lanternLightIntensity, lanternPulseSpeed, lanternEmberSize, lanternShowEmbers);
+    }, (value) => value.toFixed(1));
+
+    onRange('cfg-lantern-size', 'cfg-lantern-size-val', (value) => {
+        lanternEmberSize = value;
+        getCube()?.applyLanternSettings(lanternOpacity, lanternLightIntensity, lanternPulseSpeed, lanternEmberSize, lanternShowEmbers);
+    }, (value) => value.toFixed(2));
+
+    onCheck('cfg-lantern-embers', (value) => {
+        lanternShowEmbers = value;
+        getCube()?.applyLanternSettings(lanternOpacity, lanternLightIntensity, lanternPulseSpeed, lanternEmberSize, lanternShowEmbers);
+    });
+
+    onRange('cfg-spheres-radius', 'cfg-spheres-radius-val', (value) => {
+        spheresRadius = value;
+        getCube()?.applySpheresSettings(spheresRadius);
+    }, (value) => value.toFixed(2));
+
+    const skinSelect = document.getElementById('cfg-skin');
+    const lanternOpacityRow  = document.getElementById('cfg-lantern-opacity-row');
+    const lanternLightRow    = document.getElementById('cfg-lantern-light-row');
+    const lanternPulseRow    = document.getElementById('cfg-lantern-pulse-row');
+    const lanternSizeRow     = document.getElementById('cfg-lantern-size-row');
+    const lanternEmbersRow   = document.getElementById('cfg-lantern-embers-row');
+    const spheresRadiusRow   = document.getElementById('cfg-spheres-radius-row');
+    const roundedRow         = document.getElementById('cfg-rounded-row');
+
+    const syncLanternRows = () => {
+        const visible = skinId === 'lantern';
+        [lanternOpacityRow, lanternLightRow, lanternPulseRow, lanternSizeRow, lanternEmbersRow].forEach((row) => {
+            if (row) row.style.display = visible ? '' : 'none';
+        });
+        if (spheresRadiusRow) {
+            spheresRadiusRow.style.display = skinId === 'spheres' ? '' : 'none';
+        }
+        const isCubieSkin = skinId !== 'spheres';
+        if (roundedRow) {
+            roundedRow.style.display = isCubieSkin ? '' : 'none';
+        }
+        if (radiusRow) {
+            radiusRow.style.display = isCubieSkin && roundedEnabled ? '' : 'none';
+        }
+    };
+
+    // Defer the heavy skin-switch work by one frame so the dropdown closes first
+    skinSelect?.addEventListener('change', () => {
+        skinId = skinSelect.value;
+        syncLanternRows();
+        requestAnimationFrame(() => {
+            getCube()?.applyLanternSettings(lanternOpacity, lanternLightIntensity, lanternPulseSpeed, lanternEmberSize, lanternShowEmbers);
+            getCube()?.applySpheresSettings(spheresRadius);
+            getCube()?.applySkin(skinId);
+        });
+    });
+
     let roundedEnabled = savedSettings.roundedEnabled ?? true;
     let roundedRadius = savedSettings.roundedRadius ?? 0.12;
     const radiusRow = document.getElementById('cfg-radius-row');
@@ -386,9 +506,7 @@ const initApp = () => {
 
     onCheck('cfg-rounded', (value) => {
         roundedEnabled = value;
-        if (radiusRow) {
-            radiusRow.style.display = value ? '' : 'none';
-        }
+        syncLanternRows();
         applyGeometry();
     });
 
@@ -529,6 +647,7 @@ const initApp = () => {
 
     refreshKeybindButtons();
     syncZoomRows();
+    syncLanternRows();
     applyControlSettings();
 };
 
