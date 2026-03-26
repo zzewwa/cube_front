@@ -8,7 +8,7 @@ export class SpheresSkin extends BaseSkin {
         this._sphereGeometryByMeshId = new Map();
         this._sphereMaterialByMeshId = new Map();
         this._faceSignatureByMeshId = new Map();
-        this.radius = cube.spheresRadius ?? 0.56;
+        this.radius = cube.config.runtime?.spheres?.radius ?? 0.56;
         this._namedColor = {
             r: new THREE.Color('#ff2b2b'),
             o: new THREE.Color('#ff8a00'),
@@ -109,13 +109,13 @@ export class SpheresSkin extends BaseSkin {
         if (!sphereMaterial) {
             sphereMaterial = new THREE.MeshStandardMaterial({
                 vertexColors: true,
-                metalness: this.cube._metalness,
-                roughness: this.cube._roughness
+                metalness: this.cube.config.cube.textures.metalness,
+                roughness: this.cube.config.cube.textures.roughness
             });
             this._sphereMaterialByMeshId.set(mesh.id, sphereMaterial);
         }
-        sphereMaterial.metalness = this.cube._metalness;
-        sphereMaterial.roughness = this.cube._roughness;
+        sphereMaterial.metalness = this.cube.config.cube.textures.metalness;
+        sphereMaterial.roughness = this.cube.config.cube.textures.roughness;
         sphereMaterial.needsUpdate = true;
 
         if (mesh.material !== sphereMaterial) {
@@ -131,8 +131,8 @@ export class SpheresSkin extends BaseSkin {
 
     _applyMaterialState() {
         for (const material of this._sphereMaterialByMeshId.values()) {
-            material.metalness = this.cube._metalness;
-            material.roughness = this.cube._roughness;
+            material.metalness = this.cube.config.cube.textures.metalness;
+            material.roughness = this.cube.config.cube.textures.roughness;
             material.needsUpdate = true;
         }
     }

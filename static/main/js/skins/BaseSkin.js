@@ -21,14 +21,40 @@ export class BaseSkin {
     update() {}
 
     /**
-     * Called after cube._metalness / cube._roughness change.
+     * Called when cube state is persisted.
+     * Return serializable plain object (or null) with skin-specific state.
+     */
+    getPersistentState() {
+        return null;
+    }
+
+    /**
+     * Called when cube state is restored.
+     * @param {object|null} _state
+     * @returns {boolean} true if state consumed by this skin
+     */
+    applyPersistentState(_state) {
+        return false;
+    }
+
+    /**
+     * Called when cube remaps a cubie materials after a completed turn.
+     * @param {THREE.Mesh} _mesh
+     * @param {number[]} _remap
+     * @param {'x'|'y'|'z'} _axis
+     * @param {1|-1} _sign
+     */
+    onCubieRemap(_mesh, _remap, _axis, _sign) {}
+
+    /**
+     * Called after cube material settings change.
      * Default implementation propagates the new values to all materials.
      */
     onMaterialChange() {
         for (const mats of this.cube.materialsByObjectId.values()) {
             for (const mat of mats) {
-                mat.metalness = this.cube._metalness;
-                mat.roughness = this.cube._roughness;
+                mat.metalness = this.cube.config.cube.textures.metalness;
+                mat.roughness = this.cube.config.cube.textures.roughness;
                 mat.needsUpdate = true;
             }
         }
