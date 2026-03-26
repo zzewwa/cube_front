@@ -7,6 +7,20 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { CUBE_CONFIG } from './cube-config.js';
+import { ClassicSkin } from './skins/ClassicSkin.js';
+import { LanternSkin } from './skins/LanternSkin.js';
+import { SpheresSkin } from './skins/SpheresSkin.js';
+
+/**
+ * Skin registry — to add a new skin:
+ *   1. Create a class extending BaseSkin in skins/
+ *   2. Import it above and add an entry below.
+ */
+const SKIN_REGISTRY = {
+    classic: ClassicSkin,
+    lantern: LanternSkin,
+    spheres: SpheresSkin,
+};
 
 export class RubiksCube {
     constructor(containerSelector, cubeCookies = null) {
@@ -18,6 +32,18 @@ export class RubiksCube {
 
         this.config = CUBE_CONFIG;
         this.scene_color = this.config.scene.backgroundColor;
+        this.fogEnabled = true;
+        this.fogDensity = this.config.scene.fogDensity;
+        this.skinId = 'classic';
+        this.lanternOpacity        = 0.58;
+        this.lanternLightIntensity = 0.52;
+        this.lanternPulseSpeed     = 1.0;
+        this.lanternEmberSize      = 0.16;
+        this.lanternShowEmbers     = true;
+        this.spheresRadius         = 0.56;
+        this._metalness = this.config.cube.textures.metalness;
+        this._roughness = this.config.cube.textures.roughness;
+        this.activeSkin = null;
         this.position_of_cubes = new Map();
         this.materialsByObjectId = new Map();
         this.materialPalette = null;
@@ -316,7 +342,9 @@ export class RubiksCube {
         // Scene setup
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(this.scene_color);
-        this.scene.fog = new THREE.FogExp2(this.scene_color, this.config.scene.fogDensity);
+        this.scene.fog = this.fogEnabled
+            ? new THREE.FogExp2(this.scene_color, this.fogDensity)
+            : null;
         
         // Renderer
         this.renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -644,6 +672,8 @@ export class RubiksCube {
         if (this._metalness !== undefined) {
             this.applyMaterialSettings(this._metalness, this._roughness);
         }
+
+        this.applySkin(this.skinId);
 
         this._lastSolvedState = null;
         this._cubeNetDirty = true;
@@ -1090,6 +1120,7 @@ export class RubiksCube {
             this._cubeNetDirty = false;
         }
         this.updateFpsCounter();
+        this.activeSkin?.update();
 
         this.controls.update();
         this.renderer.render(this.scene, this.camera);
@@ -1101,11 +1132,22 @@ export class RubiksCube {
     }
     
     applySceneSettings(bgColor, fogDensity) {
+        this.scene_color = bgColor;
+        this.fogDensity = fogDensity;
         this.scene.background.set(bgColor);
         if (this.scene.fog) {
             this.scene.fog.color.set(bgColor);
             this.scene.fog.density = fogDensity;
         }
+    }
+
+    setFogEnabled(enabled) {
+        this.fogEnabled = Boolean(enabled);
+        if (this.fogEnabled) {
+            this.scene.fog = new THREE.FogExp2(this.scene_color, this.fogDensity);
+            return;
+        }
+        this.scene.fog = null;
     }
 
     applyLightSettings(ambientColor, ambientIntensity, rimColor, rimIntensity) {
@@ -1118,13 +1160,37 @@ export class RubiksCube {
     applyMaterialSettings(metalness, roughness) {
         this._metalness = metalness;
         this._roughness = roughness;
-        for (const materials of this.materialsByObjectId.values()) {
-            for (const mat of materials) {
-                mat.metalness = metalness;
-                mat.roughness = roughness;
-                mat.needsUpdate = true;
-            }
-        }
+        this.activeSkin?.onMaterialChange();
+    }
+
+    applyLanternSettings(opacity, lightIntensity, pulseSpeed, emberSize, showEmbers) {
+        this.lanternOpacity        = Math.min(0.9,  Math.max(0.2,  Number(opacity)));
+        this.lanternLightIntensity = Math.min(1.8,  Math.max(0.05, Number(lightIntensity)));
+        this.lanternPulseSpeed     = Math.min(5.0,  Math.max(0.1,  Number(pulseSpeed)));
+        this.lanternEmberSize      = Math.min(0.4,  Math.max(0.08, Number(emberSize)));
+        this.lanternShowEmbers     = Boolean(showEmbers);
+        this.activeSkin?.setParams({
+            opacity:        this.lanternOpacity,
+            lightIntensity: this.lanternLightIntensity,
+            pulseSpeed:     this.lanternPulseSpeed,
+            emberSize:      this.lanternEmberSize,
+            showEmbers:     this.lanternShowEmbers,
+        });
+    }
+
+    applySpheresSettings(radius) {
+        this.spheresRadius = Math.min(0.72, Math.max(0.42, Number(radius)));
+        this.activeSkin?.setParams({
+            spheresRadius: this.spheresRadius,
+        });
+    }
+
+    applySkin(skinId) {
+        this.skinId = skinId || 'classic';
+        this.activeSkin?.detach();
+        const SkinClass = SKIN_REGISTRY[this.skinId] ?? ClassicSkin;
+        this.activeSkin = new SkinClass(this);
+        this.activeSkin.apply();
     }
 
     applySpeed(stepsPerTurn) {
@@ -1232,6 +1298,10 @@ export class RubiksCube {
             mesh.geometry = newGeometry;
         }
         oldGeometry?.dispose();
+
+        if (this.skinId) {
+            this.applySkin(this.skinId);
+        }
     }
 
     setSettingsPanelRotationEnabled(enabled) {
