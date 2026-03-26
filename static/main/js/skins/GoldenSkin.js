@@ -118,11 +118,11 @@ export class GoldenSkin extends BaseSkin {
 
     _createGemMaterial(letter) {
         const color = new THREE.Color(FACE_MARKER[letter]);
-        const emissive = color.clone().multiplyScalar(0.10);
+        const emissive = color.clone().multiplyScalar(0.16);
         return new THREE.MeshPhysicalMaterial({
             color,
             emissive,
-            emissiveIntensity: 0.02,
+            emissiveIntensity: 0.08,
             metalness: 0.0,
             roughness: 0.06,
             transmission: 0.98,
@@ -135,6 +135,14 @@ export class GoldenSkin extends BaseSkin {
             envMapIntensity: 0.25,
             flatShading: true,
         });
+    }
+
+    _createGemGlowLight(letter) {
+        const color = new THREE.Color(FACE_MARKER[letter]);
+        const light = new THREE.PointLight(color, 0.22, 0.95, 2.0);
+        light.castShadow = false;
+        light.position.set(0, 0, 0.04);
+        return light;
     }
 
     _syncGems(mesh, force = false) {
@@ -168,6 +176,7 @@ export class GoldenSkin extends BaseSkin {
             gem.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
             gem.scale.set(1.18, 1.18, 0.68);
                 this._installGoldShimmer(gem.material);
+            gem.add(this._createGemGlowLight(letter));
             group.add(gem);
         }
 
