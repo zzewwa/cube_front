@@ -386,6 +386,8 @@ export class RubiksCube {
         this._zoomMin = 5;
         this._zoomMax = 30;
         this._steppedZoomPending = 0;
+        this._smoothZoomVelocity = 0;
+        this._smoothZoomDamping = 0.86;
         this.controls.minDistance = this._zoomMin;
         this.controls.maxDistance = this._zoomMax;
         this.controls.enableZoom = false;
@@ -1081,11 +1083,10 @@ export class RubiksCube {
         this._zoomMax = max;
         this.controls.minDistance = min;
         this.controls.maxDistance = max;
-        if (mode === 'smooth') {
-            this.controls.enableZoom = true;
-            this.controls.zoomSpeed = smooth;
-        } else {
-            this.controls.enableZoom = false;
+        this.controls.enableZoom = false;
+        this._smoothZoomDamping = 0.9 - Math.min(0.08, smooth * 0.02);
+        if (mode === 'stepped') {
+            this._smoothZoomVelocity = 0;
         }
         const dist = this.camera.position.length();
         const clamped = Math.max(min, Math.min(max, dist));
@@ -1095,26 +1096,56 @@ export class RubiksCube {
     }
 
     _handleWheel(event) {
-        if (this._zoomMode !== 'stepped') {
-            return;
-        }
         event.preventDefault();
         const dir = event.deltaY > 0 ? 1 : -1;
-        this._steppedZoomPending += dir;
+
+        if (this._zoomMode === 'stepped') {
+            this._steppedZoomPending += dir;
+            return;
+        }
+
+        const accel = 0.18 * this._zoomSmooth;
+        this._smoothZoomVelocity += dir * accel;
+        this._smoothZoomVelocity = Math.max(-2.2, Math.min(2.2, this._smoothZoomVelocity));
     }
 
     _applyZoomDelta() {
-        if (this._steppedZoomPending === 0) {
+        const pos = this.camera.position;
+
+        if (this._zoomMode === 'stepped') {
+            if (this._steppedZoomPending === 0) {
+                return;
+            }
+            const currentDist = pos.length();
+            const targetDist = Math.max(
+                this._zoomMin,
+                Math.min(this._zoomMax, currentDist + this._steppedZoomPending * this._zoomStep)
+            );
+            pos.setLength(targetDist);
+            this._steppedZoomPending = 0;
             return;
         }
-        const pos = this.camera.position;
+
+        if (Math.abs(this._smoothZoomVelocity) < 0.0008) {
+            this._smoothZoomVelocity = 0;
+            return;
+        }
+
         const currentDist = pos.length();
+        const unclampedDist = currentDist + this._smoothZoomVelocity;
         const targetDist = Math.max(
             this._zoomMin,
-            Math.min(this._zoomMax, currentDist + this._steppedZoomPending * this._zoomStep)
+            Math.min(this._zoomMax, unclampedDist)
         );
+
         pos.setLength(targetDist);
-        this._steppedZoomPending = 0;
+
+        if (targetDist !== unclampedDist) {
+            this._smoothZoomVelocity = 0;
+            return;
+        }
+
+        this._smoothZoomVelocity *= this._smoothZoomDamping;
     }
 
     applyGeometry(enabled, radius) {
