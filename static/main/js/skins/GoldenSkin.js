@@ -17,6 +17,7 @@ export class GoldenSkin extends BaseSkin {
         this._originalState = new WeakMap();
         this._albedoByLetter = new Map();
         this._shaderTimeByMaterial = new WeakMap();
+        this._phaseByMaterial = new WeakMap();
         this._gemsByMeshId = new Map();
         this._gemSignatureByMeshId = new Map();
         this._gemGeometry = new THREE.IcosahedronGeometry(0.115, 0);
@@ -71,6 +72,23 @@ export class GoldenSkin extends BaseSkin {
         const tex = this._createFaceTexture(key);
         this._albedoByLetter.set(key, tex);
         return tex;
+    }
+
+    _getMaterialPhase(material) {
+        const existing = this._phaseByMaterial.get(material);
+        if (existing !== undefined) {
+            return existing;
+        }
+
+        // Stable hash from uuid so every face shimmers with its own phase.
+        let hash = 0;
+        for (let i = 0; i < material.uuid.length; i++) {
+            hash = ((hash << 5) - hash) + material.uuid.charCodeAt(i);
+            hash |= 0;
+        }
+        const phase = Math.abs(hash % 6283) / 1000; // ~[0..2PI]
+        this._phaseByMaterial.set(material, phase);
+        return phase;
     }
 
     _getLogicalMaterials(mesh) {
@@ -306,7 +324,23 @@ export class GoldenSkin extends BaseSkin {
                     shader.uniforms.uGoldShimmerSpeed.value = this.shimmerSpeed;
                 }
 
-                mat.emissiveIntensity = (mat.name === 'h' ? 0.02 : 0.03) + this.shimmerAmount * 0.03;
+                // Robust fallback shimmer in runtime: always visible and face-local.
+                const base = mat.name === 'h' ? 0.02 : 0.03;
+                if (this.shimmerAmount <= 0.0001 || this.shimmerSpeed <= 0.0001) {
+                    mat.emissive.copy(GOLD_EMISSIVE);
+                    mat.emissiveIntensity = base;
+                } else {
+                    const phase = this._getMaterialPhase(mat);
+                    const t = this._time * this.shimmerSpeed;
+                    const waveA = 0.5 + 0.5 * Math.sin(t * 2.1 + phase);
+                    const waveB = 0.5 + 0.5 * Math.sin(t * 3.4 + phase * 1.7);
+                    const local = waveA * 0.62 + waveB * 0.38;
+                    const sparkle = Math.max(0, (local - 0.70) / 0.30); // soft threshold 0..1
+
+                    const emissiveColor = GOLD_EMISSIVE.clone().lerp(new THREE.Color('#e3b85a'), sparkle * 0.55);
+                    mat.emissive.copy(emissiveColor);
+                    mat.emissiveIntensity = base + this.shimmerAmount * (0.035 + sparkle * 0.22);
+                }
             }
         }
 
@@ -343,7 +377,6 @@ export class GoldenSkin extends BaseSkin {
                     shader.uniforms.uGoldShimmerAmount.value = this.shimmerAmount;
                     shader.uniforms.uGoldShimmerSpeed.value = this.shimmerSpeed;
                 }
-                mat.emissiveIntensity = (mat.name === 'h' ? 0.02 : 0.03) + this.shimmerAmount * 0.03;
             }
         }
     }
