@@ -1,7 +1,8 @@
 export const CUBE_CONFIG = {
     scene: {
         backgroundColor: 0x2c3640,
-        fogDensity: 0.025
+        fogDensity: 0.025,
+        fogEnabled: true
     },
     camera: {
         fov: 45,
@@ -11,10 +12,25 @@ export const CUBE_CONFIG = {
     },
     controls: {
         dampingFactor: 0.05,
-        enablePan: false
+        enablePan: false,
+        rotateSpeed: 1,
+        zoom: {
+            mode: 'stepped',
+            step: 1.5,
+            smoothSpeed: 1,
+            min: 5,
+            max: 30,
+            smoothDamping: 0.86
+        }
     },
     rotation: {
         stepsPerTurn: 30
+    },
+    history: {
+        maxUndoHistory: 50
+    },
+    debug: {
+        fpsEnabled: false
     },
     lights: {
         ambient: {
@@ -52,5 +68,25 @@ export const CUBE_CONFIG = {
                 back: '/static/main/textures/back.png'
             }
         },
+    }
+    ,
+    runtime: {
+        skinId: 'classic',
+        lantern: {
+            opacity: 0.58,
+            lightIntensity: 0.52,
+            pulseSpeed: 1.0,
+            emberSize: 0.16,
+            showEmbers: true
+        },
+        spheres: {
+            radius: 0.56
+        },
+        water: {
+            fillLevel: 0.62,
+            spring: 14,
+            damping: 4,
+            response: 1.3
+        }
     }
 };

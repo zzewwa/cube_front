@@ -13,8 +13,8 @@ export class ClassicSkin extends BaseSkin {
                 mat.depthWrite        = true;
                 mat.emissive.setHex(0x000000);
                 mat.emissiveIntensity = 0;
-                mat.metalness         = this.cube._metalness;
-                mat.roughness         = this.cube._roughness;
+                mat.metalness         = this.cube.config.cube.textures.metalness;
+                mat.roughness         = this.cube.config.cube.textures.roughness;
                 mat.needsUpdate       = true;
             }
         }

@@ -4,12 +4,15 @@
  */
 
 import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { CUBE_CONFIG } from './cube-config.js';
+import { CubeFaceOrientationEngine } from './engine/CubeFaceOrientationEngine.js';
+import { RenderEngine } from './engine/RenderEngine.js';
 import { ClassicSkin } from './skins/ClassicSkin.js';
 import { LanternSkin } from './skins/LanternSkin.js';
 import { SpheresSkin } from './skins/SpheresSkin.js';
+import { Magic8BallSkin } from './skins/Magic8BallSkin.js';
+import { WaterSkin } from './skins/WaterSkin.js';
 
 /**
  * Skin registry — to add a new skin:
@@ -20,30 +23,19 @@ const SKIN_REGISTRY = {
     classic: ClassicSkin,
     lantern: LanternSkin,
     spheres: SpheresSkin,
+    magic8ball: Magic8BallSkin,
+    water: WaterSkin,
 };
 
 export class RubiksCube {
-    constructor(containerSelector, cubeCookies = null) {
+    constructor(containerSelector, cubeCookies = null, config = CUBE_CONFIG) {
         this.container = document.querySelector(containerSelector);
-        this.scene = null;
-        this.camera = null;
-        this.renderer = null;
-        this.controls = null;
+        this.containerSelector = containerSelector;
+        this.renderEngine = null;
 
-        this.config = CUBE_CONFIG;
-        this.scene_color = this.config.scene.backgroundColor;
-        this.fogEnabled = true;
-        this.fogDensity = this.config.scene.fogDensity;
-        this.skinId = 'classic';
-        this.lanternOpacity        = 0.58;
-        this.lanternLightIntensity = 0.52;
-        this.lanternPulseSpeed     = 1.0;
-        this.lanternEmberSize      = 0.16;
-        this.lanternShowEmbers     = true;
-        this.spheresRadius         = 0.56;
-        this._metalness = this.config.cube.textures.metalness;
-        this._roughness = this.config.cube.textures.roughness;
+        this.config = config;
         this.activeSkin = null;
+        this.faceOrientationEngine = new CubeFaceOrientationEngine(this);
         this.position_of_cubes = new Map();
         this.materialsByObjectId = new Map();
         this.materialPalette = null;
@@ -56,7 +48,6 @@ export class RubiksCube {
         this.statusElement = null;
         this._lastSolvedState = null;
         this.fpsElement = null;
-        this.debugOverlayEnabled = false;
         this._fpsFrames = 0;
         this._fpsWindowStart = performance.now();
         this._fpsLastFrameAt = performance.now();
@@ -73,13 +64,9 @@ export class RubiksCube {
             d: []
         };
 
-        // Slower and smoother quarter-turn animation
-        this.stepsPerTurn = this.config.rotation.stepsPerTurn;
-        this.stepAngle = Math.PI / (2 * this.stepsPerTurn);
         this.generalQueue = [];
         this.activeGeneralRotation = null;
         this.undoHistory = [];
-        this.maxUndoHistory = 50;
         this.generalRotations = [
             {
                 time: 0,
@@ -335,57 +322,22 @@ export class RubiksCube {
             // Ignore malformed cookie state and keep the freshly created cube.
         }
 
-        this.animate();
+        this.renderEngine.start(() => this.render());
     }
     
     init() {
-        // Scene setup
-        this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(this.scene_color);
-        this.scene.fog = this.fogEnabled
-            ? new THREE.FogExp2(this.scene_color, this.fogDensity)
-            : null;
-        
-        // Renderer
-        this.renderer = new THREE.WebGLRenderer({ antialias: true });
-        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-        
-        // Replace canvas background with Three.js renderer
-        const sceneBackdrop = document.querySelector('.scene-backdrop');
-        if (sceneBackdrop) {
-            const existingCanvas = sceneBackdrop.querySelector('canvas');
-            if (existingCanvas) {
-                existingCanvas.remove();
-            }
-            sceneBackdrop.appendChild(this.renderer.domElement);
-            this.renderer.domElement.style.display = 'block';
-        }
-        
-        // Camera
-        this.camera = new THREE.PerspectiveCamera(
-            this.config.camera.fov,
-            window.innerWidth / window.innerHeight,
-            this.config.camera.near,
-            this.config.camera.far
-        );
-        this.camera.up.set(0, 0, 1);
-        this.camera.position.set(
-            this.config.camera.position.x,
-            this.config.camera.position.y,
-            this.config.camera.position.z
-        );
-        
-        // Controls
-        this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-        this.controls.enableDamping = true;
-        this.controls.dampingFactor = this.config.controls.dampingFactor;
-        this.controls.screenSpacePanning = false;
-        this.controls.enableKeys = false;
-        this.controls.enablePan = this.config.controls.enablePan;
-        this.controls.autoRotate = false;
-        this.controls.autoRotateSpeed = 0.35;
+        this.renderEngine = new RenderEngine({
+            containerSelector: this.containerSelector,
+            cameraConfig: this.config.camera,
+            controlsConfig: this.config.controls,
+            sceneColor: this.config.scene.backgroundColor,
+            fogEnabled: this.config.scene.fogEnabled,
+            fogDensity: this.config.scene.fogDensity,
+            onResize: null,
+            onKeyDown: (event) => this.handleKeyDown(event),
+            onWheel: (event) => this._handleWheel(event)
+        });
+        this.renderEngine.init();
         
         // Create Rubik's cube (3x3x3)
         this.createRubiksCube();
@@ -396,7 +348,7 @@ export class RubiksCube {
             this.config.lights.ambient.intensity
         );
         this.ambientLight = ambient;
-        this.scene.add(ambient);
+        this.renderEngine.scene.add(ambient);
 
         const rimLight = new THREE.PointLight(
             this.config.lights.rim.color,
@@ -410,26 +362,14 @@ export class RubiksCube {
             this.config.lights.rim.position.z
         );
         this.rimLight = rimLight;
-        this.scene.add(rimLight);
+        this.renderEngine.scene.add(rimLight);
 
-        
-        // Event listeners
-        window.addEventListener('resize', () => this.onWindowResize(), false);
-        document.addEventListener('keydown', (e) => this.handleKeyDown(e));
-
-        // Zoom state (stepped by default)
-        this._zoomMode = 'stepped';
-        this._zoomStep = 1.5;
-        this._zoomSmooth = 1.0;
-        this._zoomMin = 5;
-        this._zoomMax = 30;
         this._steppedZoomPending = 0;
         this._smoothZoomVelocity = 0;
-        this._smoothZoomDamping = 0.86;
-        this.controls.minDistance = this._zoomMin;
-        this.controls.maxDistance = this._zoomMax;
-        this.controls.enableZoom = false;
-        this.renderer.domElement.addEventListener('wheel', (e) => this._handleWheel(e), { passive: false });
+        this.renderEngine.controls.rotateSpeed = this.config.controls.rotateSpeed;
+        this.renderEngine.controls.minDistance = this.config.controls.zoom.min;
+        this.renderEngine.controls.maxDistance = this.config.controls.zoom.max;
+        this.renderEngine.controls.enableZoom = false;
     }
 
     createCubeTexture(path, name) {
@@ -504,7 +444,7 @@ export class RubiksCube {
             }
         }
 
-        this.scene.add(this.cubeRoot);
+        this.renderEngine.scene.add(this.cubeRoot);
     }
 
     getSortedCubes() {
@@ -553,7 +493,23 @@ export class RubiksCube {
             return false;
         }
 
-        return this.applyRestoredCubeState(this.cubeCookies.loadState(this.cubeMeshList.length));
+        const loaded = this.cubeCookies.loadState(this.cubeMeshList.length);
+        if (!loaded?.materials) {
+            return false;
+        }
+
+        const restored = this.applyRestoredCubeState(loaded.materials);
+        if (!restored) {
+            return false;
+        }
+
+        this.faceOrientationEngine.ensureAllCubiesInitialized();
+        const engineOrientationState = loaded.additionalInfo?.engine?.faceOrientation;
+        const importedEngineState = this.faceOrientationEngine.importState(engineOrientationState);
+        if (!importedEngineState) {
+            this.faceOrientationEngine.importLegacyMagic8BallState(loaded.skinState);
+        }
+        return true;
     }
 
     persistCubeState() {
@@ -561,7 +517,12 @@ export class RubiksCube {
             return;
         }
 
-        this.cubeCookies.saveState(this.cubeMeshList, this.materialsByObjectId);
+        const additionalInfo = {
+            engine: {
+                faceOrientation: this.faceOrientationEngine.exportState()
+            }
+        };
+        this.cubeCookies.saveState(this.cubeMeshList, this.materialsByObjectId, null, additionalInfo);
     }
 
     initCubeNetWidget() {
@@ -629,9 +590,9 @@ export class RubiksCube {
         if (this.activeGeneralRotation) {
             for (const cube of [...this.activeGeneralRotation.group.children]) {
                 this.activeGeneralRotation.group.remove(cube);
-                this.scene.add(cube);
+                this.renderEngine.scene.add(cube);
             }
-            this.scene.remove(this.activeGeneralRotation.group);
+            this.renderEngine.scene.remove(this.activeGeneralRotation.group);
             this.activeGeneralRotation = null;
         }
 
@@ -641,9 +602,9 @@ export class RubiksCube {
             if (rot) {
                 for (const cube of [...rot.group.children]) {
                     rot.group.remove(cube);
-                    this.scene.add(cube);
+                    this.renderEngine.scene.add(cube);
                 }
-                this.scene.remove(rot.group);
+                this.renderEngine.scene.remove(rot.group);
                 this.activeRowRotations[keyCode] = null;
             }
         }
@@ -669,11 +630,11 @@ export class RubiksCube {
             cube.position.set(x, y, z);
         }
 
-        if (this._metalness !== undefined) {
-            this.applyMaterialSettings(this._metalness, this._roughness);
+        if (this.config.cube.textures.metalness !== undefined) {
+            this.applyMaterialSettings(this.config.cube.textures.metalness, this.config.cube.textures.roughness);
         }
 
-        this.applySkin(this.skinId);
+        this.applySkin(this.config.runtime.skinId);
 
         this._lastSolvedState = null;
         this._cubeNetDirty = true;
@@ -698,20 +659,20 @@ export class RubiksCube {
             document.body.appendChild(node);
         }
         this.fpsElement = node;
-        this.fpsElement.classList.toggle('is-hidden', !this.debugOverlayEnabled);
+        this.fpsElement.classList.toggle('is-hidden', !this.config.debug.fpsEnabled);
         this.fpsElement.textContent = 'FPS: -- | AVG: --';
     }
 
     setDebugOverlayEnabled(enabled) {
-        this.debugOverlayEnabled = Boolean(enabled);
+        this.config.debug.fpsEnabled = Boolean(enabled);
         if (!this.fpsElement) {
             return;
         }
-        this.fpsElement.classList.toggle('is-hidden', !this.debugOverlayEnabled);
+        this.fpsElement.classList.toggle('is-hidden', !this.config.debug.fpsEnabled);
     }
 
     updateFpsCounter() {
-        if (!this.fpsElement || !this.debugOverlayEnabled) {
+        if (!this.fpsElement || !this.config.debug.fpsEnabled) {
             return;
         }
 
@@ -863,12 +824,12 @@ export class RubiksCube {
     createGroupFromNames(cubeNames) {
         const group = new THREE.Group();
         for (const name of cubeNames) {
-            const cube = this.scene.getObjectByName(name);
+            const cube = this.renderEngine.scene.getObjectByName(name);
             if (cube) {
                 group.add(cube);
             }
         }
-        this.scene.add(group);
+        this.renderEngine.scene.add(group);
         return group;
     }
 
@@ -965,7 +926,7 @@ export class RubiksCube {
         }
     }
 
-    catCube(group, obj, mat, newName) {
+    catCube(group, obj, mat, newName, rotationAxis = 'z', rotationSign = 1) {
         if (!obj) {
             return;
         }
@@ -990,16 +951,25 @@ export class RubiksCube {
 
         obj.material = remappedMaterials;
         this.materialsByObjectId.set(obj.id, remappedMaterials);
-        this.scene.add(obj);
+
+        this.faceOrientationEngine.onCubieRemap(obj, mat, rotationAxis, rotationSign);
+
+        if (this.activeSkin?.onCubieRemap) {
+            this.activeSkin.onCubieRemap(obj, mat, rotationAxis, rotationSign);
+        }
+
+        this.renderEngine.scene.add(obj);
     }
 
     commitRowRotation(rotation) {
         for (let i = 0; i < 9; i++) {
             this.catCube(
                 rotation.group,
-                this.scene.getObjectByName(String(rotation.change[9 + i])),
+                this.renderEngine.scene.getObjectByName(String(rotation.change[9 + i])),
                 rotation.materials,
-                String(rotation.change[i])
+                String(rotation.change[i]),
+                rotation.axis,
+                rotation.sign
             );
         }
 
@@ -1016,9 +986,11 @@ export class RubiksCube {
                 for (let j = 0; j < 9; j++) {
                     this.catCube(
                         rotation.group,
-                        this.scene.getObjectByName(String(rotation.change[j] + i)),
+                        this.renderEngine.scene.getObjectByName(String(rotation.change[j] + i)),
                         rotation.materials,
-                        String(rotation.change[9 + j] + i)
+                        String(rotation.change[9 + j] + i),
+                        rotation.axis,
+                        rotation.sign
                     );
                 }
             }
@@ -1033,9 +1005,11 @@ export class RubiksCube {
             for (let j = 0; j < 9; j++) {
                 this.catCube(
                     rotation.group,
-                    this.scene.getObjectByName(String(rotation.change[j] + i)),
+                    this.renderEngine.scene.getObjectByName(String(rotation.change[j] + i)),
                     rotation.materials,
-                    String(rotation.change[9 + j] + i)
+                    String(rotation.change[9 + j] + i),
+                    rotation.axis,
+                    rotation.sign
                 );
             }
         }
@@ -1049,7 +1023,7 @@ export class RubiksCube {
 
     recordHistory(action) {
         this.undoHistory.push(action);
-        if (this.undoHistory.length > this.maxUndoHistory) {
+        if (this.undoHistory.length > this.config.history.maxUndoHistory) {
             this.undoHistory.shift();
         }
     }
@@ -1079,16 +1053,17 @@ export class RubiksCube {
             return null;
         }
 
-        rotation.group.rotation[rotation.axis] += (rotation.sign * this.stepAngle);
+        const stepAngle = Math.PI / (2 * this.config.rotation.stepsPerTurn);
+        rotation.group.rotation[rotation.axis] += (rotation.sign * stepAngle);
         rotation.progress += 1;
 
-        if (rotation.progress < this.stepsPerTurn) {
+        if (rotation.progress < this.config.rotation.stepsPerTurn) {
             return rotation;
         }
 
         commitRotation(rotation);
-        rotation.group.rotation[rotation.axis] -= (rotation.sign * this.stepAngle * this.stepsPerTurn);
-        this.scene.remove(rotation.group);
+        rotation.group.rotation[rotation.axis] -= (rotation.sign * stepAngle * this.config.rotation.stepsPerTurn);
+        this.renderEngine.scene.remove(rotation.group);
         return null;
     }
 
@@ -1121,33 +1096,25 @@ export class RubiksCube {
         }
         this.updateFpsCounter();
         this.activeSkin?.update();
-
-        this.controls.update();
-        this.renderer.render(this.scene, this.camera);
-    }
-    
-    animate = () => {
-        requestAnimationFrame(this.animate);
-        this.render();
     }
     
     applySceneSettings(bgColor, fogDensity) {
-        this.scene_color = bgColor;
-        this.fogDensity = fogDensity;
-        this.scene.background.set(bgColor);
-        if (this.scene.fog) {
-            this.scene.fog.color.set(bgColor);
-            this.scene.fog.density = fogDensity;
-        }
+        this.config.scene.backgroundColor = bgColor;
+        this.config.scene.fogDensity = Number(fogDensity);
+        this.renderEngine?.setSceneSettings(
+            this.config.scene.backgroundColor,
+            this.config.scene.fogEnabled,
+            this.config.scene.fogDensity
+        );
     }
 
     setFogEnabled(enabled) {
-        this.fogEnabled = Boolean(enabled);
-        if (this.fogEnabled) {
-            this.scene.fog = new THREE.FogExp2(this.scene_color, this.fogDensity);
-            return;
-        }
-        this.scene.fog = null;
+        this.config.scene.fogEnabled = Boolean(enabled);
+        this.renderEngine?.setSceneSettings(
+            this.config.scene.backgroundColor,
+            this.config.scene.fogEnabled,
+            this.config.scene.fogDensity
+        );
     }
 
     applyLightSettings(ambientColor, ambientIntensity, rimColor, rimIntensity) {
@@ -1158,44 +1125,43 @@ export class RubiksCube {
     }
 
     applyMaterialSettings(metalness, roughness) {
-        this._metalness = metalness;
-        this._roughness = roughness;
+        this.config.cube.textures.metalness = Number(metalness);
+        this.config.cube.textures.roughness = Number(roughness);
         this.activeSkin?.onMaterialChange();
     }
 
     applyLanternSettings(opacity, lightIntensity, pulseSpeed, emberSize, showEmbers) {
-        this.lanternOpacity        = Math.min(0.9,  Math.max(0.2,  Number(opacity)));
-        this.lanternLightIntensity = Math.min(1.8,  Math.max(0.05, Number(lightIntensity)));
-        this.lanternPulseSpeed     = Math.min(5.0,  Math.max(0.1,  Number(pulseSpeed)));
-        this.lanternEmberSize      = Math.min(0.4,  Math.max(0.08, Number(emberSize)));
-        this.lanternShowEmbers     = Boolean(showEmbers);
+        this.config.runtime.lantern.opacity = Math.min(0.9,  Math.max(0.2,  Number(opacity)));
+        this.config.runtime.lantern.lightIntensity = Math.min(1.8,  Math.max(0.05, Number(lightIntensity)));
+        this.config.runtime.lantern.pulseSpeed = Math.min(5.0,  Math.max(0.1,  Number(pulseSpeed)));
+        this.config.runtime.lantern.emberSize = Math.min(0.4,  Math.max(0.08, Number(emberSize)));
+        this.config.runtime.lantern.showEmbers = Boolean(showEmbers);
         this.activeSkin?.setParams({
-            opacity:        this.lanternOpacity,
-            lightIntensity: this.lanternLightIntensity,
-            pulseSpeed:     this.lanternPulseSpeed,
-            emberSize:      this.lanternEmberSize,
-            showEmbers:     this.lanternShowEmbers,
+            opacity:        this.config.runtime.lantern.opacity,
+            lightIntensity: this.config.runtime.lantern.lightIntensity,
+            pulseSpeed:     this.config.runtime.lantern.pulseSpeed,
+            emberSize:      this.config.runtime.lantern.emberSize,
+            showEmbers:     this.config.runtime.lantern.showEmbers,
         });
     }
 
     applySpheresSettings(radius) {
-        this.spheresRadius = Math.min(0.72, Math.max(0.42, Number(radius)));
+        this.config.runtime.spheres.radius = Math.min(0.72, Math.max(0.42, Number(radius)));
         this.activeSkin?.setParams({
-            spheresRadius: this.spheresRadius,
+            spheresRadius: this.config.runtime.spheres.radius,
         });
     }
 
     applySkin(skinId) {
-        this.skinId = skinId || 'classic';
+        this.config.runtime.skinId = skinId || 'classic';
         this.activeSkin?.detach();
-        const SkinClass = SKIN_REGISTRY[this.skinId] ?? ClassicSkin;
+        const SkinClass = SKIN_REGISTRY[this.config.runtime.skinId] ?? ClassicSkin;
         this.activeSkin = new SkinClass(this);
         this.activeSkin.apply();
     }
 
     applySpeed(stepsPerTurn) {
-        this.stepsPerTurn = stepsPerTurn;
-        this.stepAngle = Math.PI / (2 * this.stepsPerTurn);
+        this.config.rotation.stepsPerTurn = Math.max(1, Math.round(Number(stepsPerTurn) || this.config.rotation.stepsPerTurn));
     }
 
     applyKeymap(km) {
@@ -1211,26 +1177,27 @@ export class RubiksCube {
     }
 
     applyRotateSensitivity(sensitivity) {
-        this.controls.rotateSpeed = sensitivity;
+        this.config.controls.rotateSpeed = Number(sensitivity);
+        this.renderEngine.controls.rotateSpeed = this.config.controls.rotateSpeed;
     }
 
     applyZoomSettings(mode, step, smooth, min, max) {
-        this._zoomMode = mode;
-        this._zoomStep = step;
-        this._zoomSmooth = smooth;
-        this._zoomMin = min;
-        this._zoomMax = max;
-        this.controls.minDistance = min;
-        this.controls.maxDistance = max;
-        this.controls.enableZoom = false;
-        this._smoothZoomDamping = 0.9 - Math.min(0.08, smooth * 0.02);
-        if (mode === 'stepped') {
+        this.config.controls.zoom.mode = mode;
+        this.config.controls.zoom.step = Number(step);
+        this.config.controls.zoom.smoothSpeed = Number(smooth);
+        this.config.controls.zoom.min = Number(min);
+        this.config.controls.zoom.max = Number(max);
+        this.config.controls.zoom.smoothDamping = 0.9 - Math.min(0.08, this.config.controls.zoom.smoothSpeed * 0.02);
+        this.renderEngine.controls.minDistance = this.config.controls.zoom.min;
+        this.renderEngine.controls.maxDistance = this.config.controls.zoom.max;
+        this.renderEngine.controls.enableZoom = false;
+        if (this.config.controls.zoom.mode === 'stepped') {
             this._smoothZoomVelocity = 0;
         }
-        const dist = this.camera.position.length();
-        const clamped = Math.max(min, Math.min(max, dist));
+        const dist = this.renderEngine.camera.position.length();
+        const clamped = Math.max(this.config.controls.zoom.min, Math.min(this.config.controls.zoom.max, dist));
         if (dist !== clamped) {
-            this.camera.position.setLength(clamped);
+            this.renderEngine.camera.position.setLength(clamped);
         }
     }
 
@@ -1238,27 +1205,27 @@ export class RubiksCube {
         event.preventDefault();
         const dir = event.deltaY > 0 ? 1 : -1;
 
-        if (this._zoomMode === 'stepped') {
+        if (this.config.controls.zoom.mode === 'stepped') {
             this._steppedZoomPending += dir;
             return;
         }
 
-        const accel = 0.18 * this._zoomSmooth;
+        const accel = 0.18 * this.config.controls.zoom.smoothSpeed;
         this._smoothZoomVelocity += dir * accel;
         this._smoothZoomVelocity = Math.max(-2.2, Math.min(2.2, this._smoothZoomVelocity));
     }
 
     _applyZoomDelta() {
-        const pos = this.camera.position;
+        const pos = this.renderEngine.camera.position;
 
-        if (this._zoomMode === 'stepped') {
+        if (this.config.controls.zoom.mode === 'stepped') {
             if (this._steppedZoomPending === 0) {
                 return;
             }
             const currentDist = pos.length();
             const targetDist = Math.max(
-                this._zoomMin,
-                Math.min(this._zoomMax, currentDist + this._steppedZoomPending * this._zoomStep)
+                this.config.controls.zoom.min,
+                Math.min(this.config.controls.zoom.max, currentDist + this._steppedZoomPending * this.config.controls.zoom.step)
             );
             pos.setLength(targetDist);
             this._steppedZoomPending = 0;
@@ -1273,8 +1240,8 @@ export class RubiksCube {
         const currentDist = pos.length();
         const unclampedDist = currentDist + this._smoothZoomVelocity;
         const targetDist = Math.max(
-            this._zoomMin,
-            Math.min(this._zoomMax, unclampedDist)
+            this.config.controls.zoom.min,
+            Math.min(this.config.controls.zoom.max, unclampedDist)
         );
 
         pos.setLength(targetDist);
@@ -1284,7 +1251,7 @@ export class RubiksCube {
             return;
         }
 
-        this._smoothZoomVelocity *= this._smoothZoomDamping;
+        this._smoothZoomVelocity *= this.config.controls.zoom.smoothDamping;
     }
 
     applyGeometry(enabled, radius) {
@@ -1299,13 +1266,13 @@ export class RubiksCube {
         }
         oldGeometry?.dispose();
 
-        if (this.skinId) {
-            this.applySkin(this.skinId);
+        if (this.config.runtime.skinId) {
+            this.applySkin(this.config.runtime.skinId);
         }
     }
 
     setSettingsPanelRotationEnabled(enabled) {
-        this.controls.autoRotate = Boolean(enabled);
+        this.renderEngine.controls.autoRotate = Boolean(enabled);
     }
 
     setCubeNetVisible(enabled) {
@@ -1323,8 +1290,6 @@ export class RubiksCube {
     }
 
     onWindowResize() {
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.camera.aspect = window.innerWidth / window.innerHeight;
-        this.camera.updateProjectionMatrix();
+        this.renderEngine?.resize();
     }
 }

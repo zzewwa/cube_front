@@ -69,11 +69,11 @@ const EMBER_RENDER_MAX = 0.49;
 export class LanternSkin extends BaseSkin {
     constructor(cube) {
         super(cube);
-        this.opacity        = cube.lanternOpacity        ?? 0.58;
-        this.lightIntensity = cube.lanternLightIntensity ?? 0.52;
-        this.pulseSpeed     = cube.lanternPulseSpeed     ?? 1.0;
-        this.emberSize      = cube.lanternEmberSize      ?? 0.16;
-        this.showEmbers     = cube.lanternShowEmbers     ?? true;
+        this.opacity        = cube.config.runtime?.lantern?.opacity ?? 0.58;
+        this.lightIntensity = cube.config.runtime?.lantern?.lightIntensity ?? 0.52;
+        this.pulseSpeed     = cube.config.runtime?.lantern?.pulseSpeed ?? 1.0;
+        this.emberSize      = cube.config.runtime?.lantern?.emberSize ?? 0.16;
+        this.showEmbers     = cube.config.runtime?.lantern?.showEmbers ?? true;
         this._embers = [];
     }
 
@@ -93,8 +93,8 @@ export class LanternSkin extends BaseSkin {
     _applyMaterials() {
         for (const mats of this.cube.materialsByObjectId.values()) {
             for (const mat of mats) {
-                mat.metalness = this.cube._metalness;
-                mat.roughness = this.cube._roughness;
+                mat.metalness = this.cube.config.cube.textures.metalness;
+                mat.roughness = this.cube.config.cube.textures.roughness;
                 if (mat.name === 'h') {
                     mat.transparent       = false;
                     mat.opacity           = 1;

@@ -65,6 +65,7 @@ export class CookieCube extends Cookies {
     constructor() {
         super();
         this.stateCookieName = 'rubiks_cube_state';
+        this.skinStateCookieName = 'rubiks_cube_skin_state';
     }
 
     serializeState(cubeMeshList, materialsByObjectId) {
@@ -95,11 +96,46 @@ export class CookieCube extends Cookies {
     }
 
     loadState(cubeCount) {
-        return this.deserializeState(this.read(this.stateCookieName), cubeCount);
+        const materials = this.deserializeState(this.read(this.stateCookieName), cubeCount);
+        if (!materials) {
+            return null;
+        }
+
+        let skinState = null;
+        let additionalInfo = null;
+        const rawSkinState = this.read(this.skinStateCookieName);
+        if (rawSkinState) {
+            try {
+                const parsed = JSON.parse(rawSkinState);
+                if (parsed && typeof parsed === 'object') {
+                    const hasEnvelope = Object.prototype.hasOwnProperty.call(parsed, 'skinState')
+                        || Object.prototype.hasOwnProperty.call(parsed, 'additionalInfo');
+                    if (hasEnvelope) {
+                        skinState = parsed.skinState && typeof parsed.skinState === 'object' ? parsed.skinState : null;
+                        additionalInfo = parsed.additionalInfo && typeof parsed.additionalInfo === 'object'
+                            ? parsed.additionalInfo
+                            : null;
+                    } else {
+                        skinState = parsed;
+                    }
+                }
+            } catch (_error) {
+                skinState = null;
+                additionalInfo = null;
+            }
+        }
+
+        return { materials, skinState, additionalInfo };
     }
 
-    saveState(cubeMeshList, materialsByObjectId) {
+    saveState(cubeMeshList, materialsByObjectId, skinState = null, additionalInfo = null) {
         this.write(this.stateCookieName, this.serializeState(cubeMeshList, materialsByObjectId));
+        const payload = {
+            version: 2,
+            skinState,
+            additionalInfo: additionalInfo && typeof additionalInfo === 'object' ? additionalInfo : null
+        };
+        this.write(this.skinStateCookieName, JSON.stringify(payload));
     }
 }
 

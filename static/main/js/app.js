@@ -1,5 +1,6 @@
 import { RubiksCube } from './cube.js';
 import { CookieCube, CookieSettings } from './cookies.js';
+import { CUBE_CONFIG } from './cube-config.js';
 
 const initApp = () => {
     requestAnimationFrame(() => {
@@ -38,9 +39,41 @@ const initApp = () => {
         skinId = 'classic';
     }
 
+    const cubeConfig = JSON.parse(JSON.stringify(CUBE_CONFIG));
+    if (savedSettings.bgColor !== undefined) cubeConfig.scene.backgroundColor = savedSettings.bgColor;
+    if (savedSettings.fogDensity !== undefined) cubeConfig.scene.fogDensity = Number(savedSettings.fogDensity);
+    if (savedSettings.fogEnabled !== undefined) cubeConfig.scene.fogEnabled = Boolean(savedSettings.fogEnabled);
+    if (savedSettings.ambientColor !== undefined) cubeConfig.lights.ambient.color = savedSettings.ambientColor;
+    if (savedSettings.ambientIntensity !== undefined) cubeConfig.lights.ambient.intensity = Number(savedSettings.ambientIntensity);
+    if (savedSettings.rimColor !== undefined) cubeConfig.lights.rim.color = savedSettings.rimColor;
+    if (savedSettings.rimIntensity !== undefined) cubeConfig.lights.rim.intensity = Number(savedSettings.rimIntensity);
+    if (savedSettings.metalness !== undefined) cubeConfig.cube.textures.metalness = Number(savedSettings.metalness);
+    if (savedSettings.roughness !== undefined) cubeConfig.cube.textures.roughness = Number(savedSettings.roughness);
+    if (savedSettings.roundedEnabled !== undefined) cubeConfig.cube.geometry.roundedEdges.enabled = Boolean(savedSettings.roundedEnabled);
+    if (savedSettings.roundedRadius !== undefined) cubeConfig.cube.geometry.roundedEdges.radius = Number(savedSettings.roundedRadius);
+    if (savedSettings.speed !== undefined) cubeConfig.rotation.stepsPerTurn = Number(savedSettings.speed);
+    if (savedSettings.rotateSensitivity !== undefined) cubeConfig.controls.rotateSpeed = Number(savedSettings.rotateSensitivity);
+    if (savedSettings.zoomMode !== undefined) cubeConfig.controls.zoom.mode = savedSettings.zoomMode;
+    if (savedSettings.zoomStep !== undefined) cubeConfig.controls.zoom.step = Number(savedSettings.zoomStep);
+    if (savedSettings.zoomSmoothSpeed !== undefined) cubeConfig.controls.zoom.smoothSpeed = Number(savedSettings.zoomSmoothSpeed);
+    if (savedSettings.zoomMin !== undefined) cubeConfig.controls.zoom.min = Number(savedSettings.zoomMin);
+    if (savedSettings.zoomMax !== undefined) cubeConfig.controls.zoom.max = Number(savedSettings.zoomMax);
+    cubeConfig.controls.zoom.smoothDamping = 0.9 - Math.min(0.08, cubeConfig.controls.zoom.smoothSpeed * 0.02);
+    if (savedSettings.debugFpsEnabled !== undefined) cubeConfig.debug.fpsEnabled = Boolean(savedSettings.debugFpsEnabled);
+    cubeConfig.runtime = cubeConfig.runtime ?? {};
+    cubeConfig.runtime.skinId = skinId;
+    cubeConfig.runtime.lantern = cubeConfig.runtime.lantern ?? {};
+    cubeConfig.runtime.lantern.opacity = lanternOpacity;
+    cubeConfig.runtime.lantern.lightIntensity = lanternLightIntensity;
+    cubeConfig.runtime.lantern.pulseSpeed = lanternPulseSpeed;
+    cubeConfig.runtime.lantern.emberSize = lanternEmberSize;
+    cubeConfig.runtime.lantern.showEmbers = lanternShowEmbers;
+    cubeConfig.runtime.spheres = cubeConfig.runtime.spheres ?? {};
+    cubeConfig.runtime.spheres.radius = spheresRadius;
+
     if (sceneBackdrop) {
         const cubeCookies = new CookieCube();
-        window.cubeApp = new RubiksCube('.scene-backdrop', cubeCookies);
+        window.cubeApp = new RubiksCube('.scene-backdrop', cubeCookies, cubeConfig);
 
         const persistAppState = () => {
             window.cubeApp?.persistCubeState();
