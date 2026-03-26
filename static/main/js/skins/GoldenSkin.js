@@ -23,7 +23,7 @@ export class GoldenSkin extends BaseSkin {
         this._gemGeometry = new THREE.IcosahedronGeometry(0.115, 0);
         this._ownedEnvironment = null;
         this._previousEnvironment = null;
-        this.shimmerAmount = cube.config.runtime?.golden?.shimmer ?? 0.11;
+        this.shimmerAmount = cube.config.runtime?.golden?.shimmer ?? 0.18;
         this.shimmerSpeed = cube.config.runtime?.golden?.shimmerSpeed ?? 1.0;
         this._time = 0;
     }
@@ -219,19 +219,19 @@ export class GoldenSkin extends BaseSkin {
             );
 
             shader.fragmentShader = shader.fragmentShader.replace(
-                '#include <emissivemap_fragment>',
-                '#include <emissivemap_fragment>\n'
+                '#include <output_fragment>',
+                '#include <output_fragment>\n'
                 + 'float lineA = 0.5 + 0.5 * sin(vGoldWorldPos.x * 6.2 + uGoldTime * 1.4 * uGoldShimmerSpeed);\n'
                 + 'float lineB = 0.5 + 0.5 * sin(vGoldWorldPos.y * 4.8 - uGoldTime * 1.1 * uGoldShimmerSpeed);\n'
                 + 'float lineC = 0.5 + 0.5 * sin((vGoldWorldPos.x + vGoldWorldPos.y) * 3.9 + uGoldTime * 0.9 * uGoldShimmerSpeed);\n'
                 + 'float shimmer = max(lineA * 0.58, max(lineB * 0.52, lineC * 0.42));\n'
-                + 'float streak = smoothstep(0.82, 1.0, shimmer);\n'
+                + 'float streak = smoothstep(0.72, 1.0, shimmer);\n'
                 + 'vec3 shimmerColor = vec3(1.00, 0.90, 0.52);\n'
-                + 'totalEmissiveRadiance += shimmerColor * uGoldShimmerAmount * (0.04 + streak * 0.35);'
+                + 'gl_FragColor.rgb += shimmerColor * uGoldShimmerAmount * (0.06 + streak * 0.55);'
             );
         };
 
-        material.customProgramCacheKey = () => 'golden-shimmer-v2';
+        material.customProgramCacheKey = () => 'golden-shimmer-v3';
     }
 
     _applyGoldenMaterials() {
@@ -357,10 +357,22 @@ export class GoldenSkin extends BaseSkin {
 
     setParams({ goldenShimmer, goldenShimmerSpeed }) {
         if (goldenShimmer !== undefined) {
-            this.shimmerAmount = Math.min(0.35, Math.max(0.0, Number(goldenShimmer)));
+            this.shimmerAmount = Math.min(1.2, Math.max(0.0, Number(goldenShimmer)));
         }
         if (goldenShimmerSpeed !== undefined) {
             this.shimmerSpeed = Math.min(3.0, Math.max(0.1, Number(goldenShimmerSpeed)));
+        }
+
+        // Immediate visual feedback even before next frame/shader uniform tick.
+        for (const mats of this.cube.materialsByObjectId.values()) {
+            for (const mat of mats) {
+                mat.emissiveIntensity = (mat.name === 'h' ? 0.06 : 0.10) + this.shimmerAmount * 0.03;
+                const uniforms = this._shaderTimeByMaterial.get(mat);
+                if (uniforms) {
+                    uniforms.amount.value = this.shimmerAmount;
+                    uniforms.speed.value = this.shimmerSpeed;
+                }
+            }
         }
     }
 }

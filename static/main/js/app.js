@@ -32,7 +32,7 @@ const initApp = () => {
     let lanternEmberSize = savedSettings.lanternEmberSize ?? 0.16;
     let lanternShowEmbers = savedSettings.lanternShowEmbers ?? true;
     let spheresRadius = savedSettings.spheresRadius ?? 0.56;
-    let goldenShimmer = savedSettings.goldenShimmer ?? 0.11;
+    let goldenShimmer = savedSettings.goldenShimmer ?? 0.18;
     let goldenShimmerSpeed = savedSettings.goldenShimmerSpeed ?? 1.0;
     if (skinId === 'glow') {
         skinId = 'lantern';
