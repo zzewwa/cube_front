@@ -840,8 +840,8 @@ kbd {
 
 .cube-fps {
     position: fixed;
-    top: 62px;
-    right: 18px;
+    top: 22px;
+    right: 108px;
     z-index: 28;
     padding: 6px 10px;
     border: 1px solid var(--line-strong);
@@ -855,6 +855,10 @@ kbd {
     pointer-events: none;
     user-select: none;
     backdrop-filter: blur(4px);
+}
+
+.cube-fps.is-hidden {
+    display: none;
 }
 
 .menu-overlay {

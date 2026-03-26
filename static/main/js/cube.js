@@ -30,12 +30,14 @@ export class RubiksCube {
         this.statusElement = null;
         this._lastSolvedState = null;
         this.fpsElement = null;
+        this.debugOverlayEnabled = false;
         this._fpsFrames = 0;
         this._fpsWindowStart = performance.now();
         this._fpsLastFrameAt = performance.now();
         this._fpsCurrent = 0;
         this._fpsAvg = 0;
         this._fpsSamples = 0;
+        this._cubeNetDirty = true;
         this.cubeNetStickers = {
             u: [],
             l: [],
@@ -318,7 +320,7 @@ export class RubiksCube {
         
         // Renderer
         this.renderer = new THREE.WebGLRenderer({ antialias: true });
-        this.renderer.setPixelRatio(window.devicePixelRatio);
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.outputColorSpace = THREE.SRGBColorSpace;
         
@@ -513,6 +515,8 @@ export class RubiksCube {
             this.materialsByObjectId.set(cube.id, restoredMaterials);
         });
 
+        this._cubeNetDirty = true;
+
         return true;
     }
 
@@ -642,6 +646,7 @@ export class RubiksCube {
         }
 
         this._lastSolvedState = null;
+        this._cubeNetDirty = true;
     }
 
     updateSolvedStatus(isSolved) {
@@ -663,11 +668,20 @@ export class RubiksCube {
             document.body.appendChild(node);
         }
         this.fpsElement = node;
+        this.fpsElement.classList.toggle('is-hidden', !this.debugOverlayEnabled);
         this.fpsElement.textContent = 'FPS: -- | AVG: --';
     }
 
-    updateFpsCounter() {
+    setDebugOverlayEnabled(enabled) {
+        this.debugOverlayEnabled = Boolean(enabled);
         if (!this.fpsElement) {
+            return;
+        }
+        this.fpsElement.classList.toggle('is-hidden', !this.debugOverlayEnabled);
+    }
+
+    updateFpsCounter() {
+        if (!this.fpsElement || !this.debugOverlayEnabled) {
             return;
         }
 
@@ -962,6 +976,8 @@ export class RubiksCube {
         if (!rotation.isUndo) {
             this.recordHistory({ type: 'row', keyCode: rotation.key, index: rotation.time });
         }
+
+        this._cubeNetDirty = true;
     }
 
     commitGeneralRotation(rotation) {
@@ -979,6 +995,7 @@ export class RubiksCube {
             if (!rotation.isUndo) {
                 this.recordHistory({ type: 'general', index: rotation.time });
             }
+            this._cubeNetDirty = true;
             return;
         }
 
@@ -996,6 +1013,8 @@ export class RubiksCube {
         if (!rotation.isUndo) {
             this.recordHistory({ type: 'general', index: rotation.time });
         }
+
+        this._cubeNetDirty = true;
     }
 
     recordHistory(action) {
@@ -1066,7 +1085,10 @@ export class RubiksCube {
 
         this.updateGeneralRotation();
         this.updateRowRotations();
-        this.updateCubeNet();
+        if (this._cubeNetDirty) {
+            this.updateCubeNet();
+            this._cubeNetDirty = false;
+        }
         this.updateFpsCounter();
 
         this.controls.update();

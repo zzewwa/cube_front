@@ -22,6 +22,7 @@ const initApp = () => {
     let zoomSmoothSpeed = savedSettings.zoomSmoothSpeed ?? 1.0;
     let zoomMin = savedSettings.zoomMin ?? 5;
     let zoomMax = savedSettings.zoomMax ?? 30;
+    let debugFpsEnabled = savedSettings.debugFpsEnabled ?? false;
 
     if (sceneBackdrop) {
         const cubeCookies = new CookieCube();
@@ -49,7 +50,8 @@ const initApp = () => {
                 zoomStep,
                 zoomSmoothSpeed,
                 zoomMin,
-                zoomMax
+                zoomMax,
+                debugFpsEnabled
             });
         };
 
@@ -134,6 +136,7 @@ const initApp = () => {
     setControlValue('cfg-zoom-smooth-speed', zoomSmoothSpeed);
     setControlValue('cfg-zoom-min', zoomMin);
     setControlValue('cfg-zoom-max', zoomMax);
+    setControlValue('cfg-debug-fps', debugFpsEnabled);
 
     const zoomSteppedInput = document.getElementById('cfg-zoom-stepped');
     const zoomSmoothInput = document.getElementById('cfg-zoom-smooth');
@@ -285,6 +288,7 @@ const initApp = () => {
         cube.applyKeymap(keymap);
         cube.applyRotateSensitivity(rotateSensitivity);
         cube.applyZoomSettings(zoomMode, zoomStep, zoomSmoothSpeed, zoomMin, zoomMax);
+        cube.setDebugOverlayEnabled(debugFpsEnabled);
     };
 
     let bgColor = savedSettings.bgColor ?? '#2c3640';
@@ -415,6 +419,11 @@ const initApp = () => {
 
     onCheck('cfg-cube-net', (value) => {
         getCube()?.setCubeNetVisible(value);
+    });
+
+    onCheck('cfg-debug-fps', (value) => {
+        debugFpsEnabled = value;
+        getCube()?.setDebugOverlayEnabled(value);
     });
 
     keybindButtons.forEach((button) => {
