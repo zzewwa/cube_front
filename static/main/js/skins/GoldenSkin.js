@@ -16,8 +16,10 @@ export class GoldenSkin extends BaseSkin {
         super(cube);
         this._originalState = new WeakMap();
         this._albedoByLetter = new Map();
-        this._bumpByLetter = new Map();
         this._shaderTimeByMaterial = new WeakMap();
+        this._gemsByMeshId = new Map();
+        this._gemSignatureByMeshId = new Map();
+        this._gemGeometry = new THREE.OctahedronGeometry(0.075, 1);
         this._time = 0;
     }
 
@@ -41,100 +43,21 @@ export class GoldenSkin extends BaseSkin {
         ctx.fillStyle = '#d8ae45';
         ctx.fillRect(32, 32, size - 64, size - 64);
 
-        const marker = FACE_MARKER[letter];
-        if (marker) {
-            const markerSize = 74;
-            const markerPos = Math.floor((size - markerSize) / 2);
-            const m0 = markerPos;
-            const m1 = markerPos + markerSize;
-            const c = markerPos + markerSize * 0.5;
-            const inset = 10;
-
-            // Gem base (octagon) with color gradient.
-            const gemGrad = ctx.createLinearGradient(m0, m0, m1, m1);
-            gemGrad.addColorStop(0.0, '#ffffff');
-            gemGrad.addColorStop(0.25, marker);
-            gemGrad.addColorStop(1.0, '#1a1a1a');
-
+        // Subtle brushed pattern so gold is not flat.
+        ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 32; i++) {
+            const y = 28 + i * 6;
             ctx.beginPath();
-            ctx.moveTo(c, m0);
-            ctx.lineTo(m1 - inset, m0 + inset);
-            ctx.lineTo(m1, c);
-            ctx.lineTo(m1 - inset, m1 - inset);
-            ctx.lineTo(c, m1);
-            ctx.lineTo(m0 + inset, m1 - inset);
-            ctx.lineTo(m0, c);
-            ctx.lineTo(m0 + inset, m0 + inset);
-            ctx.closePath();
-            ctx.fillStyle = gemGrad;
-            ctx.fill();
-
-            // Facet lines.
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(c, m0 + 2);
-            ctx.lineTo(c, m1 - 2);
-            ctx.moveTo(m0 + 2, c);
-            ctx.lineTo(m1 - 2, c);
-            ctx.moveTo(m0 + inset, m0 + inset);
-            ctx.lineTo(m1 - inset, m1 - inset);
-            ctx.moveTo(m1 - inset, m0 + inset);
-            ctx.lineTo(m0 + inset, m1 - inset);
+            ctx.moveTo(34, y);
+            ctx.lineTo(size - 34, y + ((i % 2) ? 2 : -2));
             ctx.stroke();
-
-            // Small specular point.
-            const spark = ctx.createRadialGradient(c - 14, c - 14, 1, c - 14, c - 14, 16);
-            spark.addColorStop(0, 'rgba(255,255,255,0.9)');
-            spark.addColorStop(1, 'rgba(255,255,255,0.0)');
-            ctx.fillStyle = spark;
-            ctx.fillRect(c - 30, c - 30, 40, 40);
         }
 
         const texture = new THREE.CanvasTexture(canvas);
         texture.colorSpace = THREE.SRGBColorSpace;
         texture.needsUpdate = true;
         return texture;
-    }
-
-    _createBumpTexture(letter) {
-        const size = 256;
-        const canvas = document.createElement('canvas');
-        canvas.width = size;
-        canvas.height = size;
-        const ctx = canvas.getContext('2d');
-
-        // Mid gray base.
-        ctx.fillStyle = 'rgb(120,120,120)';
-        ctx.fillRect(0, 0, size, size);
-
-        if (FACE_MARKER[letter]) {
-            const markerSize = 74;
-            const markerPos = Math.floor((size - markerSize) / 2);
-            const c = markerPos + markerSize * 0.5;
-
-            // Bright dome gives visible "protrusion" via bump mapping.
-            const dome = ctx.createRadialGradient(c, c, 6, c, c, markerSize * 0.55);
-            dome.addColorStop(0.00, 'rgb(255,255,255)');
-            dome.addColorStop(0.60, 'rgb(218,218,218)');
-            dome.addColorStop(1.00, 'rgb(132,132,132)');
-            ctx.fillStyle = dome;
-            ctx.fillRect(markerPos - 4, markerPos - 4, markerSize + 8, markerSize + 8);
-
-            // Facet ridges in height map.
-            ctx.strokeStyle = 'rgb(236,236,236)';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(c, markerPos + 2);
-            ctx.lineTo(c, markerPos + markerSize - 2);
-            ctx.moveTo(markerPos + 2, c);
-            ctx.lineTo(markerPos + markerSize - 2, c);
-            ctx.stroke();
-        }
-
-        const bump = new THREE.CanvasTexture(canvas);
-        bump.needsUpdate = true;
-        return bump;
     }
 
     _getFaceTexture(letter) {
@@ -148,15 +71,79 @@ export class GoldenSkin extends BaseSkin {
         return tex;
     }
 
-    _getBumpTexture(letter) {
-        const key = FACE_MARKER[letter] ? letter : 'h';
-        if (this._bumpByLetter.has(key)) {
-            return this._bumpByLetter.get(key);
+    _getLogicalMaterials(mesh) {
+        return this.cube.materialsByObjectId.get(mesh.id) || mesh.material;
+    }
+
+    _getFaceLetters(mesh) {
+        const mats = this._getLogicalMaterials(mesh);
+        if (!Array.isArray(mats) || mats.length < 6) {
+            return ['h', 'h', 'h', 'h', 'h', 'h'];
+        }
+        return mats.map((m) => m?.name ?? 'h');
+    }
+
+    _faceNormalByIndex(index) {
+        const normals = [
+            new THREE.Vector3(1, 0, 0),
+            new THREE.Vector3(-1, 0, 0),
+            new THREE.Vector3(0, 1, 0),
+            new THREE.Vector3(0, -1, 0),
+            new THREE.Vector3(0, 0, 1),
+            new THREE.Vector3(0, 0, -1),
+        ];
+        return normals[index] ?? new THREE.Vector3(0, 0, 1);
+    }
+
+    _createGemMaterial(letter) {
+        const color = new THREE.Color(FACE_MARKER[letter]);
+        const emissive = color.clone().multiplyScalar(0.16);
+        return new THREE.MeshPhysicalMaterial({
+            color,
+            emissive,
+            emissiveIntensity: 0.35,
+            metalness: 0.05,
+            roughness: 0.12,
+            clearcoat: 1.0,
+            clearcoatRoughness: 0.06,
+            sheen: 0.25,
+            sheenColor: color.clone().multiplyScalar(1.2),
+        });
+    }
+
+    _syncGems(mesh, force = false) {
+        const letters = this._getFaceLetters(mesh);
+        const signature = letters.join('|');
+        if (!force && this._gemSignatureByMeshId.get(mesh.id) === signature) {
+            return;
         }
 
-        const bump = this._createBumpTexture(key);
-        this._bumpByLetter.set(key, bump);
-        return bump;
+        let group = this._gemsByMeshId.get(mesh.id);
+        if (!group) {
+            group = new THREE.Group();
+            group.name = 'golden-gems';
+            mesh.add(group);
+            this._gemsByMeshId.set(mesh.id, group);
+        }
+
+        for (const child of group.children) {
+            child.material?.dispose?.();
+        }
+        group.clear();
+
+        for (let faceIndex = 0; faceIndex < 6; faceIndex++) {
+            const letter = letters[faceIndex];
+            if (!FACE_MARKER[letter]) continue;
+
+            const gem = new THREE.Mesh(this._gemGeometry, this._createGemMaterial(letter));
+            const normal = this._faceNormalByIndex(faceIndex);
+            gem.position.copy(normal).multiplyScalar(0.54); // clearly protrudes beyond 0.5 face plane
+            gem.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+            gem.scale.set(0.95, 0.95, 1.25);
+            group.add(gem);
+        }
+
+        this._gemSignatureByMeshId.set(mesh.id, signature);
     }
 
     _installGoldShimmer(material) {
@@ -186,11 +173,13 @@ export class GoldenSkin extends BaseSkin {
 
             shader.fragmentShader = shader.fragmentShader.replace(
                 '#include <output_fragment>',
-                'float shimmerA = 0.5 + 0.5 * sin(vGoldWorldPos.x * 4.6 + uGoldTime * 1.7);\n'
-                + 'float shimmerB = 0.5 + 0.5 * sin(vGoldWorldPos.y * 6.3 - uGoldTime * 1.2);\n'
-                + 'float shimmer = (shimmerA * 0.6 + shimmerB * 0.4) * 0.22;\n'
+                'float shimmerA = 0.5 + 0.5 * sin(vGoldWorldPos.x * 6.8 + uGoldTime * 2.6);\n'
+                + 'float shimmerB = 0.5 + 0.5 * sin(vGoldWorldPos.y * 8.9 - uGoldTime * 2.1);\n'
+                + 'float shimmerC = 0.5 + 0.5 * sin(vGoldWorldPos.z * 5.2 + uGoldTime * 1.4);\n'
+                + 'float shimmer = clamp((shimmerA * 0.45 + shimmerB * 0.35 + shimmerC * 0.20), 0.0, 1.0);\n'
+                + 'float streak = smoothstep(0.72, 1.0, shimmer);\n'
                 + 'vec3 goldSheen = vec3(1.00, 0.86, 0.45);\n'
-                + 'outgoingLight += goldSheen * shimmer;\n'
+                + 'outgoingLight += goldSheen * (0.10 + streak * 0.65);\n'
                 + '#include <output_fragment>'
             );
         };
@@ -212,8 +201,6 @@ export class GoldenSkin extends BaseSkin {
                         depthWrite: mat.depthWrite,
                         metalness: mat.metalness,
                         roughness: mat.roughness,
-                        bumpMap: mat.bumpMap,
-                        bumpScale: mat.bumpScale,
                         onBeforeCompile: mat.onBeforeCompile,
                         customProgramCacheKey: mat.customProgramCacheKey,
                         goldenShimmerInstalled: mat.userData.goldenShimmerInstalled,
@@ -221,8 +208,6 @@ export class GoldenSkin extends BaseSkin {
                 }
 
                 mat.map = this._getFaceTexture(mat.name);
-                mat.bumpMap = this._getBumpTexture(mat.name);
-                mat.bumpScale = mat.name === 'h' ? 0.03 : 0.10;
                 mat.color.setHex(0xffffff);
                 mat.emissive.copy(GOLD_EMISSIVE);
                 mat.emissiveIntensity = mat.name === 'h' ? 0.05 : 0.12;
@@ -235,17 +220,31 @@ export class GoldenSkin extends BaseSkin {
                 mat.needsUpdate = true;
             }
         }
+
+        for (const mesh of this.cube.cubeMeshList) {
+            this._syncGems(mesh, true);
+        }
     }
 
     _disposeTextures() {
         for (const texture of this._albedoByLetter.values()) {
             texture.dispose();
         }
-        for (const texture of this._bumpByLetter.values()) {
-            texture.dispose();
-        }
         this._albedoByLetter.clear();
-        this._bumpByLetter.clear();
+    }
+
+    _disposeGems() {
+        for (const mesh of this.cube.cubeMeshList) {
+            const group = this._gemsByMeshId.get(mesh.id);
+            if (!group) continue;
+            for (const child of group.children) {
+                child.material?.dispose?.();
+            }
+            group.clear();
+            mesh.remove(group);
+        }
+        this._gemsByMeshId.clear();
+        this._gemSignatureByMeshId.clear();
     }
 
     _restoreMaterials() {
@@ -265,8 +264,6 @@ export class GoldenSkin extends BaseSkin {
                 mat.depthWrite = state.depthWrite;
                 mat.metalness = state.metalness;
                 mat.roughness = state.roughness;
-                mat.bumpMap = state.bumpMap;
-                mat.bumpScale = state.bumpScale;
                 mat.onBeforeCompile = state.onBeforeCompile;
                 mat.customProgramCacheKey = state.customProgramCacheKey;
                 mat.userData.goldenShimmerInstalled = state.goldenShimmerInstalled;
@@ -281,7 +278,7 @@ export class GoldenSkin extends BaseSkin {
     }
 
     update() {
-        this._time += 0.016;
+        this._time = performance.now() * 0.001;
         for (const mats of this.cube.materialsByObjectId.values()) {
             for (const mat of mats) {
                 const timeUniform = this._shaderTimeByMaterial.get(mat);
@@ -290,10 +287,15 @@ export class GoldenSkin extends BaseSkin {
                 }
             }
         }
+
+        for (const mesh of this.cube.cubeMeshList) {
+            this._syncGems(mesh, false);
+        }
     }
 
     detach() {
         this._restoreMaterials();
+        this._disposeGems();
         this._disposeTextures();
     }
 
