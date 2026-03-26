@@ -13,6 +13,7 @@ import { LanternSkin } from './skins/LanternSkin.js';
 import { SpheresSkin } from './skins/SpheresSkin.js';
 import { Magic8BallSkin } from './skins/Magic8BallSkin.js';
 import { WaterSkin } from './skins/WaterSkin.js';
+import { GoldenSkin } from './skins/GoldenSkin.js';
 
 /**
  * Skin registry — to add a new skin:
@@ -25,6 +26,7 @@ const SKIN_REGISTRY = {
     spheres: SpheresSkin,
     magic8ball: Magic8BallSkin,
     water: WaterSkin,
+    golden: GoldenSkin,
 };
 
 export class RubiksCube {
