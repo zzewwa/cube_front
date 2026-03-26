@@ -34,7 +34,9 @@ const initApp = () => {
     let spheresRadius = savedSettings.spheresRadius ?? 0.56;
     let goldenShimmer = savedSettings.goldenShimmer ?? 0.18;
     let goldenShimmerSpeed = savedSettings.goldenShimmerSpeed ?? 1.0;
-        let goldenSparkleScale = savedSettings.goldenSparkleScale ?? 5.0;
+    let goldenSparkleScale = savedSettings.goldenSparkleScale ?? 5.0;
+    let goldenGemGlowMode = savedSettings.goldenGemGlowMode ?? 'all';
+    let goldenGemGlowIntensity = savedSettings.goldenGemGlowIntensity ?? 0.22;
     if (skinId === 'glow') {
         skinId = 'lantern';
     }
@@ -76,7 +78,9 @@ const initApp = () => {
     cubeConfig.runtime.golden = cubeConfig.runtime.golden ?? {};
     cubeConfig.runtime.golden.shimmer = goldenShimmer;
     cubeConfig.runtime.golden.shimmerSpeed = goldenShimmerSpeed;
-        cubeConfig.runtime.golden.sparkleScale = goldenSparkleScale;
+    cubeConfig.runtime.golden.sparkleScale = goldenSparkleScale;
+    cubeConfig.runtime.golden.gemGlowMode = goldenGemGlowMode;
+    cubeConfig.runtime.golden.gemGlowIntensity = goldenGemGlowIntensity;
 
     if (sceneBackdrop) {
         const cubeCookies = new CookieCube();
@@ -115,8 +119,10 @@ const initApp = () => {
                 lanternShowEmbers,
                 spheresRadius,
                 goldenShimmer,
-                    goldenShimmerSpeed,
-                    goldenSparkleScale
+                goldenShimmerSpeed,
+                goldenSparkleScale,
+                goldenGemGlowMode,
+                goldenGemGlowIntensity
             });
         };
 
@@ -204,7 +210,9 @@ const initApp = () => {
     setControlValue('cfg-spheres-radius', spheresRadius);
     setControlValue('cfg-golden-shimmer', goldenShimmer);
     setControlValue('cfg-golden-shimmer-speed', goldenShimmerSpeed);
-        setControlValue('cfg-golden-sparkle', goldenSparkleScale);
+    setControlValue('cfg-golden-sparkle', goldenSparkleScale);
+    setControlValue('cfg-golden-gem-glow-mode', goldenGemGlowMode);
+    setControlValue('cfg-golden-gem-glow-intensity', goldenGemGlowIntensity);
     setControlValue('cfg-fog-enabled', fogEnabled);
     setControlValue('cfg-skin', skinId);
     setControlValue('cfg-rotate-speed', rotateSensitivity);
@@ -366,7 +374,7 @@ const initApp = () => {
         cube.applyZoomSettings(zoomMode, zoomStep, zoomSmoothSpeed, zoomMin, zoomMax);
         cube.applyLanternSettings(lanternOpacity, lanternLightIntensity, lanternPulseSpeed, lanternEmberSize, lanternShowEmbers);
         cube.applySpheresSettings(spheresRadius);
-            cube.applyGoldenSettings(goldenShimmer, goldenShimmerSpeed, goldenSparkleScale);
+        cube.applyGoldenSettings(goldenShimmer, goldenShimmerSpeed, goldenSparkleScale, goldenGemGlowMode, goldenGemGlowIntensity);
         cube.setDebugOverlayEnabled(debugFpsEnabled);
         cube.setFogEnabled(fogEnabled);
         cube.applySkin(skinId);
@@ -508,18 +516,30 @@ const initApp = () => {
 
     onRange('cfg-golden-shimmer', 'cfg-golden-shimmer-val', (value) => {
         goldenShimmer = value;
-           getCube()?.applyGoldenSettings(goldenShimmer, goldenShimmerSpeed, goldenSparkleScale);
+        getCube()?.applyGoldenSettings(goldenShimmer, goldenShimmerSpeed, goldenSparkleScale, goldenGemGlowMode, goldenGemGlowIntensity);
     }, (value) => value.toFixed(2));
 
     onRange('cfg-golden-shimmer-speed', 'cfg-golden-shimmer-speed-val', (value) => {
         goldenShimmerSpeed = value;
-            getCube()?.applyGoldenSettings(goldenShimmer, goldenShimmerSpeed, goldenSparkleScale);
+        getCube()?.applyGoldenSettings(goldenShimmer, goldenShimmerSpeed, goldenSparkleScale, goldenGemGlowMode, goldenGemGlowIntensity);
     }, (value) => value.toFixed(2));
 
-        onRange('cfg-golden-sparkle', 'cfg-golden-sparkle-val', (value) => {
-            goldenSparkleScale = value;
-            getCube()?.applyGoldenSettings(goldenShimmer, goldenShimmerSpeed, goldenSparkleScale);
-        }, (value) => value.toFixed(2));
+    onRange('cfg-golden-sparkle', 'cfg-golden-sparkle-val', (value) => {
+        goldenSparkleScale = value;
+        getCube()?.applyGoldenSettings(goldenShimmer, goldenShimmerSpeed, goldenSparkleScale, goldenGemGlowMode, goldenGemGlowIntensity);
+    }, (value) => value.toFixed(2));
+
+    onRange('cfg-golden-gem-glow-intensity', 'cfg-golden-gem-glow-intensity-val', (value) => {
+        goldenGemGlowIntensity = value;
+        getCube()?.applyGoldenSettings(goldenShimmer, goldenShimmerSpeed, goldenSparkleScale, goldenGemGlowMode, goldenGemGlowIntensity);
+    }, (value) => value.toFixed(2));
+
+    const goldenGemGlowModeSelect = document.getElementById('cfg-golden-gem-glow-mode');
+    goldenGemGlowModeSelect?.addEventListener('change', () => {
+        goldenGemGlowMode = goldenGemGlowModeSelect.value;
+        getCube()?.applyGoldenSettings(goldenShimmer, goldenShimmerSpeed, goldenSparkleScale, goldenGemGlowMode, goldenGemGlowIntensity);
+        syncLanternRows();
+    });
 
     const skinSelect = document.getElementById('cfg-skin');
     const lanternOpacityRow  = document.getElementById('cfg-lantern-opacity-row');
@@ -530,7 +550,9 @@ const initApp = () => {
     const spheresRadiusRow   = document.getElementById('cfg-spheres-radius-row');
     const goldenShimmerRow   = document.getElementById('cfg-golden-shimmer-row');
     const goldenShimmerSpeedRow = document.getElementById('cfg-golden-shimmer-speed-row');
-        const goldenSparkleRow   = document.getElementById('cfg-golden-sparkle-row');
+    const goldenSparkleRow   = document.getElementById('cfg-golden-sparkle-row');
+    const goldenGemGlowModeRow = document.getElementById('cfg-golden-gem-glow-mode-row');
+    const goldenGemGlowIntensityRow = document.getElementById('cfg-golden-gem-glow-intensity-row');
     const roundedRow         = document.getElementById('cfg-rounded-row');
     const metalnessRow       = document.getElementById('cfg-metalness-row');
     const roughnessRow       = document.getElementById('cfg-roughness-row');
@@ -549,9 +571,16 @@ const initApp = () => {
         if (goldenShimmerSpeedRow) {
             goldenShimmerSpeedRow.style.display = skinId === 'golden' ? '' : 'none';
         }
-            if (goldenSparkleRow) {
-                goldenSparkleRow.style.display = skinId === 'golden' ? '' : 'none';
-            }
+        if (goldenSparkleRow) {
+            goldenSparkleRow.style.display = skinId === 'golden' ? '' : 'none';
+        }
+        if (goldenGemGlowModeRow) {
+            goldenGemGlowModeRow.style.display = skinId === 'golden' ? '' : 'none';
+        }
+        if (goldenGemGlowIntensityRow) {
+            const showIntensity = skinId === 'golden' && goldenGemGlowMode !== 'off';
+            goldenGemGlowIntensityRow.style.display = showIntensity ? '' : 'none';
+        }
         const isCubieSkin = skinId !== 'spheres';
         if (roundedRow) {
             roundedRow.style.display = isCubieSkin ? '' : 'none';
@@ -575,7 +604,7 @@ const initApp = () => {
         requestAnimationFrame(() => {
             getCube()?.applyLanternSettings(lanternOpacity, lanternLightIntensity, lanternPulseSpeed, lanternEmberSize, lanternShowEmbers);
             getCube()?.applySpheresSettings(spheresRadius);
-                getCube()?.applyGoldenSettings(goldenShimmer, goldenShimmerSpeed, goldenSparkleScale);
+            getCube()?.applyGoldenSettings(goldenShimmer, goldenShimmerSpeed, goldenSparkleScale, goldenGemGlowMode, goldenGemGlowIntensity);
             getCube()?.applySkin(skinId);
         });
     });

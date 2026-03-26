@@ -23,7 +23,9 @@ export class GoldenSkin extends BaseSkin {
         this._gemGeometry = new THREE.IcosahedronGeometry(0.115, 0);
         this.shimmerAmount = cube.config.runtime?.golden?.shimmer ?? 0.18;
         this.shimmerSpeed = cube.config.runtime?.golden?.shimmerSpeed ?? 1.0;
-            this.sparkleScale = cube.config.runtime?.golden?.sparkleScale ?? 5.0;
+        this.sparkleScale = cube.config.runtime?.golden?.sparkleScale ?? 5.0;
+        this.gemGlowMode = cube.config.runtime?.golden?.gemGlowMode ?? 'all';
+        this.gemGlowIntensity = cube.config.runtime?.golden?.gemGlowIntensity ?? 0.22;
         this._time = 0;
     }
 
@@ -139,10 +141,20 @@ export class GoldenSkin extends BaseSkin {
 
     _createGemGlowLight(letter) {
         const color = new THREE.Color(FACE_MARKER[letter]);
-        const light = new THREE.PointLight(color, 0.22, 0.95, 2.0);
+        const light = new THREE.PointLight(color, this.gemGlowIntensity, 0.95, 2.0);
         light.castShadow = false;
         light.position.set(0, 0, 0.04);
         return light;
+    }
+
+    _shouldAttachGemGlow(coloredFaceCount) {
+        if (this.gemGlowMode === 'off') {
+            return false;
+        }
+        if (this.gemGlowMode === 'center') {
+            return coloredFaceCount === 1;
+        }
+        return true;
     }
 
     _syncGems(mesh, force = false) {
@@ -176,9 +188,8 @@ export class GoldenSkin extends BaseSkin {
             gem.position.copy(normal).multiplyScalar(0.512);
             gem.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
             gem.scale.set(1.18, 1.18, 0.68);
-                this._installGoldShimmer(gem.material);
-            // Keep realtime lights cheap: only center stickers (6 total) get a glow light.
-            if (coloredFaceCount === 1) {
+            this._installGoldShimmer(gem.material);
+            if (this._shouldAttachGemGlow(coloredFaceCount)) {
                 gem.add(this._createGemGlowLight(letter));
             }
             group.add(gem);
@@ -197,7 +208,7 @@ export class GoldenSkin extends BaseSkin {
             shader.uniforms.uGoldTime = { value: this._time };
             shader.uniforms.uGoldShimmerAmount = { value: this.shimmerAmount };
             shader.uniforms.uGoldShimmerSpeed = { value: this.shimmerSpeed };
-                shader.uniforms.uGoldSparkleScale = { value: this.sparkleScale };
+            shader.uniforms.uGoldSparkleScale = { value: this.sparkleScale };
             material.userData._goldShader = shader;
             this._shaderTimeByMaterial.set(material, {
                 time: shader.uniforms.uGoldTime,
@@ -222,7 +233,7 @@ export class GoldenSkin extends BaseSkin {
                     'uniform float uGoldTime;',
                     'uniform float uGoldShimmerAmount;',
                     'uniform float uGoldShimmerSpeed;',
-                        'uniform float uGoldSparkleScale;',
+                    'uniform float uGoldSparkleScale;',
                     'varying vec3 vGoldWorldPos;',
                     'float goldHash(vec2 p) {',
                     '    vec2 q = fract(p * vec2(0.1031, 0.1030));',
@@ -234,9 +245,9 @@ export class GoldenSkin extends BaseSkin {
                     '    vec2 uv = fract(cell) - 0.5;',
                     '    float h = goldHash(id);',
                     '    float wave = sin(t + h * 6.2832);',
-                        '    float peak = pow(max(wave, 0.0), 4.0);',
+                    '    float peak = pow(max(wave, 0.0), 4.0);',
                     '    float dist = length(uv);',
-                        '    return peak * smoothstep(0.38, 0.0, dist);',
+                    '    return peak * smoothstep(0.38, 0.0, dist);',
                     '}',
                 ].join('\n')
             );
@@ -353,25 +364,25 @@ export class GoldenSkin extends BaseSkin {
 
     update() {
         this._time = performance.now() * 0.001;
-            const updateShader = (shader) => {
-                if (shader?.uniforms?.uGoldTime) {
-                    shader.uniforms.uGoldTime.value = this._time;
-                    shader.uniforms.uGoldShimmerAmount.value = this.shimmerAmount;
-                    shader.uniforms.uGoldShimmerSpeed.value = this.shimmerSpeed;
-                    shader.uniforms.uGoldSparkleScale.value = this.sparkleScale;
-                }
-            };
-            for (const mats of this.cube.materialsByObjectId.values()) {
-                for (const mat of mats) {
-                    updateShader(mat.userData._goldShader);
-                }
+        const updateShader = (shader) => {
+            if (shader?.uniforms?.uGoldTime) {
+                shader.uniforms.uGoldTime.value = this._time;
+                shader.uniforms.uGoldShimmerAmount.value = this.shimmerAmount;
+                shader.uniforms.uGoldShimmerSpeed.value = this.shimmerSpeed;
+                shader.uniforms.uGoldSparkleScale.value = this.sparkleScale;
             }
-            for (const group of this._gemsByMeshId.values()) {
-                for (const gem of group.children) {
-                    updateShader(gem.material?.userData?._goldShader);
-                }
+        };
+        for (const mats of this.cube.materialsByObjectId.values()) {
+            for (const mat of mats) {
+                updateShader(mat.userData._goldShader);
             }
-            for (const mesh of this.cube.cubeMeshList) {
+        }
+        for (const group of this._gemsByMeshId.values()) {
+            for (const gem of group.children) {
+                updateShader(gem.material?.userData?._goldShader);
+            }
+        }
+        for (const mesh of this.cube.cubeMeshList) {
             this._syncGems(mesh, false);
         }
     }
@@ -387,7 +398,8 @@ export class GoldenSkin extends BaseSkin {
         this._applyGoldenMaterials();
     }
 
-    setParams({ goldenShimmer, goldenShimmerSpeed, goldenSparkleScale }) {
+    setParams({ goldenShimmer, goldenShimmerSpeed, goldenSparkleScale, goldenGemGlowMode, goldenGemGlowIntensity }) {
+        let shouldRefreshGems = false;
         if (goldenShimmer !== undefined) {
             this.shimmerAmount = Math.min(1.2, Math.max(0.0, Number(goldenShimmer)));
         }
@@ -396,6 +408,14 @@ export class GoldenSkin extends BaseSkin {
         }
         if (goldenSparkleScale !== undefined) {
             this.sparkleScale = Math.min(12.0, Math.max(2.0, Number(goldenSparkleScale)));
+        }
+        if (goldenGemGlowMode !== undefined) {
+            this.gemGlowMode = ['off', 'center', 'all'].includes(goldenGemGlowMode) ? goldenGemGlowMode : 'all';
+            shouldRefreshGems = true;
+        }
+        if (goldenGemGlowIntensity !== undefined) {
+            this.gemGlowIntensity = Math.min(0.5, Math.max(0.0, Number(goldenGemGlowIntensity)));
+            shouldRefreshGems = true;
         }
 
         // Immediate visual feedback even before next frame/shader uniform tick.
@@ -408,6 +428,12 @@ export class GoldenSkin extends BaseSkin {
                     shader.uniforms.uGoldShimmerSpeed.value = this.shimmerSpeed;
                     shader.uniforms.uGoldSparkleScale.value = this.sparkleScale;
                 }
+            }
+        }
+
+        if (shouldRefreshGems) {
+            for (const mesh of this.cube.cubeMeshList) {
+                this._syncGems(mesh, true);
             }
         }
     }

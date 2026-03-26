@@ -1154,17 +1154,25 @@ export class RubiksCube {
         });
     }
 
-    applyGoldenSettings(shimmer, shimmerSpeed, sparkleScale) {
+    applyGoldenSettings(shimmer, shimmerSpeed, sparkleScale, gemGlowMode, gemGlowIntensity) {
         this.config.runtime.golden = this.config.runtime.golden ?? {};
         this.config.runtime.golden.shimmer = Math.min(1.2, Math.max(0.0, Number(shimmer)));
         this.config.runtime.golden.shimmerSpeed = Math.min(3.0, Math.max(0.0, Number(shimmerSpeed)));
         if (sparkleScale !== undefined) {
             this.config.runtime.golden.sparkleScale = Math.min(12.0, Math.max(2.0, Number(sparkleScale)));
         }
+        if (gemGlowMode !== undefined) {
+            this.config.runtime.golden.gemGlowMode = ['off', 'center', 'all'].includes(gemGlowMode) ? gemGlowMode : 'all';
+        }
+        if (gemGlowIntensity !== undefined) {
+            this.config.runtime.golden.gemGlowIntensity = Math.min(0.5, Math.max(0.0, Number(gemGlowIntensity)));
+        }
         this.activeSkin?.setParams({
             goldenShimmer: this.config.runtime.golden.shimmer,
             goldenShimmerSpeed: this.config.runtime.golden.shimmerSpeed,
             goldenSparkleScale: this.config.runtime.golden.sparkleScale,
+            goldenGemGlowMode: this.config.runtime.golden.gemGlowMode,
+            goldenGemGlowIntensity: this.config.runtime.golden.gemGlowIntensity,
         });
     }
 
