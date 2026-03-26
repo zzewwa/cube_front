@@ -183,14 +183,14 @@ export class GoldenSkin extends BaseSkin {
 
             shader.fragmentShader = shader.fragmentShader.replace(
                 '#include <common>',
-                '#include <common>\nuniform float uGoldTime;\nuniform float uGoldShimmerAmount;\nuniform float uGoldShimmerSpeed;\nvarying vec3 vGoldWorldPos;\nvarying vec2 vMapUv;'
+                '#include <common>\nuniform float uGoldTime;\nuniform float uGoldShimmerAmount;\nuniform float uGoldShimmerSpeed;\nvarying vec3 vGoldWorldPos;'
             );
 
             shader.fragmentShader = shader.fragmentShader.replace(
                 '#include <dithering_fragment>',
-                'float localA = 0.5 + 0.5 * sin(vMapUv.x * 70.0 + uGoldTime * 2.0 * uGoldShimmerSpeed);\n'
-                + 'float localB = 0.5 + 0.5 * sin(vMapUv.y * 58.0 - uGoldTime * 1.7 * uGoldShimmerSpeed);\n'
-                + 'float localC = 0.5 + 0.5 * sin((vMapUv.x + vMapUv.y) * 38.0 + uGoldTime * 1.2 * uGoldShimmerSpeed);\n'
+                'float localA = 0.5 + 0.5 * sin(vGoldWorldPos.x * 18.0 + uGoldTime * 2.0 * uGoldShimmerSpeed);\n'
+                + 'float localB = 0.5 + 0.5 * sin(vGoldWorldPos.y * 16.0 - uGoldTime * 1.7 * uGoldShimmerSpeed);\n'
+                + 'float localC = 0.5 + 0.5 * sin((vGoldWorldPos.x + vGoldWorldPos.y) * 10.0 + uGoldTime * 1.2 * uGoldShimmerSpeed);\n'
                 + 'float localShimmer = max(localA * 0.50, max(localB * 0.45, localC * 0.35));\n'
                 + 'float streak = smoothstep(0.86, 1.0, localShimmer);\n'
                 + 'vec3 shimmerColor = vec3(1.0, 0.89, 0.50);\n'
