@@ -20,7 +20,7 @@ export class GoldenSkin extends BaseSkin {
         this._shaderTimeByMaterial = new WeakMap();
         this._gemsByMeshId = new Map();
         this._gemSignatureByMeshId = new Map();
-        this._gemGeometry = new THREE.SphereGeometry(0.11, 20, 16);
+        this._gemGeometry = new THREE.IcosahedronGeometry(0.115, 0);
         this._ownedEnvironment = null;
         this._previousEnvironment = null;
         this._time = 0;
@@ -77,7 +77,7 @@ export class GoldenSkin extends BaseSkin {
         ctx.fillRect(32, 32, size - 64, size - 64);
 
         // Subtle brushed pattern so gold is not flat.
-        ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+        ctx.strokeStyle = 'rgba(255,255,255,0.03)';
         ctx.lineWidth = 1;
         for (let i = 0; i < 32; i++) {
             const y = 28 + i * 6;
@@ -134,7 +134,7 @@ export class GoldenSkin extends BaseSkin {
         return new THREE.MeshPhysicalMaterial({
             color,
             emissive,
-            emissiveIntensity: 0.20,
+            emissiveIntensity: 0.08,
             metalness: 0.0,
             roughness: 0.03,
             transmission: 0.98,
@@ -145,6 +145,7 @@ export class GoldenSkin extends BaseSkin {
             clearcoat: 1.0,
             clearcoatRoughness: 0.02,
             envMapIntensity: 1.35,
+            flatShading: true,
         });
     }
 
@@ -174,10 +175,10 @@ export class GoldenSkin extends BaseSkin {
 
             const gem = new THREE.Mesh(this._gemGeometry, this._createGemMaterial(letter));
             const normal = this._faceNormalByIndex(faceIndex);
-            // Slight protrusion over the face plane for a realistic inset gem look.
-            gem.position.copy(normal).multiplyScalar(0.505);
+            // Slight protrusion over the face plane with larger gemstone silhouette.
+            gem.position.copy(normal).multiplyScalar(0.512);
             gem.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
-            gem.scale.set(0.78, 0.78, 0.42);
+            gem.scale.set(1.18, 1.18, 0.68);
             group.add(gem);
         }
 
@@ -212,13 +213,13 @@ export class GoldenSkin extends BaseSkin {
             shader.fragmentShader = shader.fragmentShader.replace(
                 '#include <emissivemap_fragment>',
                 '#include <emissivemap_fragment>\n'
-                + 'float lineA = 0.5 + 0.5 * sin(vGoldWorldPos.x * 11.0 + uGoldTime * 4.0);\n'
-                + 'float lineB = 0.5 + 0.5 * sin(vGoldWorldPos.y * 7.5 - uGoldTime * 3.3);\n'
-                + 'float lineC = 0.5 + 0.5 * sin((vGoldWorldPos.x + vGoldWorldPos.y) * 6.2 + uGoldTime * 2.4);\n'
-                + 'float shimmer = max(lineA, max(lineB * 0.86, lineC * 0.72));\n'
-                + 'float streak = smoothstep(0.70, 0.99, shimmer);\n'
+                + 'float lineA = 0.5 + 0.5 * sin(vGoldWorldPos.x * 6.2 + uGoldTime * 1.4);\n'
+                + 'float lineB = 0.5 + 0.5 * sin(vGoldWorldPos.y * 4.8 - uGoldTime * 1.1);\n'
+                + 'float lineC = 0.5 + 0.5 * sin((vGoldWorldPos.x + vGoldWorldPos.y) * 3.9 + uGoldTime * 0.9);\n'
+                + 'float shimmer = max(lineA * 0.58, max(lineB * 0.52, lineC * 0.42));\n'
+                + 'float streak = smoothstep(0.82, 1.0, shimmer);\n'
                 + 'vec3 shimmerColor = vec3(1.00, 0.90, 0.52);\n'
-                + 'totalEmissiveRadiance += shimmerColor * (0.10 + streak * 0.95);'
+                + 'totalEmissiveRadiance += shimmerColor * (0.015 + streak * 0.11);'
             );
         };
 
@@ -248,12 +249,12 @@ export class GoldenSkin extends BaseSkin {
                 mat.map = this._getFaceTexture(mat.name);
                 mat.color.setHex(0xffffff);
                 mat.emissive.copy(GOLD_EMISSIVE);
-                mat.emissiveIntensity = mat.name === 'h' ? 0.22 : 0.34;
+                mat.emissiveIntensity = mat.name === 'h' ? 0.06 : 0.10;
                 mat.transparent = false;
                 mat.opacity = 1;
                 mat.depthWrite = true;
                 mat.metalness = mat.name === 'h' ? 0.86 : 0.92;
-                mat.roughness = mat.name === 'h' ? 0.26 : 0.18;
+                mat.roughness = mat.name === 'h' ? 0.28 : 0.20;
                 this._installGoldShimmer(mat);
                 mat.needsUpdate = true;
             }
