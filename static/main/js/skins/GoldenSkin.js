@@ -197,6 +197,7 @@ export class GoldenSkin extends BaseSkin {
             shader.uniforms.uGoldTime = { value: this._time };
             shader.uniforms.uGoldShimmerAmount = { value: this.shimmerAmount };
             shader.uniforms.uGoldShimmerSpeed = { value: this.shimmerSpeed };
+            material.userData._goldShader = shader;
             this._shaderTimeByMaterial.set(material, {
                 time: shader.uniforms.uGoldTime,
                 amount: shader.uniforms.uGoldShimmerAmount,
@@ -231,7 +232,8 @@ export class GoldenSkin extends BaseSkin {
             );
         };
 
-        material.customProgramCacheKey = () => 'golden-shimmer-v3';
+        // Unique key per material ensures onBeforeCompile runs for every cubie face.
+        material.customProgramCacheKey = () => `golden-shimmer-v4-${material.uuid}`;
     }
 
     _applyGoldenMaterials() {
@@ -314,6 +316,7 @@ export class GoldenSkin extends BaseSkin {
                 mat.onBeforeCompile = state.onBeforeCompile;
                 mat.customProgramCacheKey = state.customProgramCacheKey;
                 mat.userData.goldenShimmerInstalled = state.goldenShimmerInstalled;
+                mat.userData._goldShader = undefined;
                 mat.needsUpdate = true;
             }
         }
@@ -329,12 +332,16 @@ export class GoldenSkin extends BaseSkin {
         this._time = performance.now() * 0.001;
         for (const mats of this.cube.materialsByObjectId.values()) {
             for (const mat of mats) {
-                const uniforms = this._shaderTimeByMaterial.get(mat);
-                if (uniforms) {
-                    uniforms.time.value = this._time;
-                    uniforms.amount.value = this.shimmerAmount;
-                    uniforms.speed.value = this.shimmerSpeed;
+                const shader = mat.userData._goldShader;
+                if (shader?.uniforms?.uGoldTime) {
+                    shader.uniforms.uGoldTime.value = this._time;
+                    shader.uniforms.uGoldShimmerAmount.value = this.shimmerAmount;
+                    shader.uniforms.uGoldShimmerSpeed.value = this.shimmerSpeed;
                 }
+
+                // Fallback pulse keeps response visible even if driver skips shader patching.
+                const pulse = 0.5 + 0.5 * Math.sin(this._time * this.shimmerSpeed * 2.0);
+                mat.emissiveIntensity = (mat.name === 'h' ? 0.06 : 0.10) + this.shimmerAmount * 0.05 * pulse;
             }
         }
 
@@ -366,11 +373,11 @@ export class GoldenSkin extends BaseSkin {
         // Immediate visual feedback even before next frame/shader uniform tick.
         for (const mats of this.cube.materialsByObjectId.values()) {
             for (const mat of mats) {
-                mat.emissiveIntensity = (mat.name === 'h' ? 0.06 : 0.10) + this.shimmerAmount * 0.03;
-                const uniforms = this._shaderTimeByMaterial.get(mat);
-                if (uniforms) {
-                    uniforms.amount.value = this.shimmerAmount;
-                    uniforms.speed.value = this.shimmerSpeed;
+                mat.needsUpdate = true;
+                const shader = mat.userData._goldShader;
+                if (shader?.uniforms?.uGoldShimmerAmount) {
+                    shader.uniforms.uGoldShimmerAmount.value = this.shimmerAmount;
+                    shader.uniforms.uGoldShimmerSpeed.value = this.shimmerSpeed;
                 }
             }
         }
