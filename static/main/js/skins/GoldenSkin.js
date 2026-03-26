@@ -147,6 +147,7 @@ export class GoldenSkin extends BaseSkin {
 
     _syncGems(mesh, force = false) {
         const letters = this._getFaceLetters(mesh);
+        const coloredFaceCount = letters.filter((letter) => Boolean(FACE_MARKER[letter])).length;
         const signature = letters.join('|');
         if (!force && this._gemSignatureByMeshId.get(mesh.id) === signature) {
             return;
@@ -176,7 +177,10 @@ export class GoldenSkin extends BaseSkin {
             gem.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
             gem.scale.set(1.18, 1.18, 0.68);
                 this._installGoldShimmer(gem.material);
-            gem.add(this._createGemGlowLight(letter));
+            // Keep realtime lights cheap: only center stickers (6 total) get a glow light.
+            if (coloredFaceCount === 1) {
+                gem.add(this._createGemGlowLight(letter));
+            }
             group.add(gem);
         }
 
