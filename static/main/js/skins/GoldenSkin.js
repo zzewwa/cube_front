@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { BaseSkin } from './BaseSkin.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 const GOLD_EMISSIVE = new THREE.Color('#4f3600');
 const FACE_MARKER = {
@@ -19,8 +20,40 @@ export class GoldenSkin extends BaseSkin {
         this._shaderTimeByMaterial = new WeakMap();
         this._gemsByMeshId = new Map();
         this._gemSignatureByMeshId = new Map();
-        this._gemGeometry = new THREE.OctahedronGeometry(0.075, 1);
+        this._gemGeometry = new THREE.SphereGeometry(0.11, 20, 16);
+        this._ownedEnvironment = null;
+        this._previousEnvironment = null;
         this._time = 0;
+    }
+
+    _ensureEnvironment() {
+        const scene = this.cube.renderEngine?.scene;
+        const renderer = this.cube.renderEngine?.renderer;
+        if (!scene || !renderer || scene.environment) {
+            return;
+        }
+
+        const pmrem = new THREE.PMREMGenerator(renderer);
+        const envRT = pmrem.fromScene(new RoomEnvironment(), 0.04);
+        this._previousEnvironment = scene.environment;
+        scene.environment = envRT.texture;
+        this._ownedEnvironment = { pmrem, envRT };
+    }
+
+    _restoreEnvironment() {
+        if (!this._ownedEnvironment) {
+            return;
+        }
+
+        const scene = this.cube.renderEngine?.scene;
+        if (scene && scene.environment === this._ownedEnvironment.envRT.texture) {
+            scene.environment = this._previousEnvironment;
+        }
+
+        this._ownedEnvironment.envRT.dispose();
+        this._ownedEnvironment.pmrem.dispose();
+        this._ownedEnvironment = null;
+        this._previousEnvironment = null;
     }
 
     _createFaceTexture(letter) {
@@ -97,17 +130,21 @@ export class GoldenSkin extends BaseSkin {
 
     _createGemMaterial(letter) {
         const color = new THREE.Color(FACE_MARKER[letter]);
-        const emissive = color.clone().multiplyScalar(0.16);
+        const emissive = color.clone().multiplyScalar(0.10);
         return new THREE.MeshPhysicalMaterial({
             color,
             emissive,
-            emissiveIntensity: 0.35,
-            metalness: 0.05,
-            roughness: 0.12,
+            emissiveIntensity: 0.20,
+            metalness: 0.0,
+            roughness: 0.03,
+            transmission: 0.98,
+            thickness: 0.55,
+            ior: 1.52,
+            attenuationDistance: 0.8,
+            attenuationColor: color,
             clearcoat: 1.0,
-            clearcoatRoughness: 0.06,
-            sheen: 0.25,
-            sheenColor: color.clone().multiplyScalar(1.2),
+            clearcoatRoughness: 0.02,
+            envMapIntensity: 1.35,
         });
     }
 
@@ -137,9 +174,10 @@ export class GoldenSkin extends BaseSkin {
 
             const gem = new THREE.Mesh(this._gemGeometry, this._createGemMaterial(letter));
             const normal = this._faceNormalByIndex(faceIndex);
-            gem.position.copy(normal).multiplyScalar(0.54); // clearly protrudes beyond 0.5 face plane
+            // Slight protrusion over the face plane for a realistic inset gem look.
+            gem.position.copy(normal).multiplyScalar(0.505);
             gem.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
-            gem.scale.set(0.95, 0.95, 1.25);
+            gem.scale.set(0.78, 0.78, 0.42);
             group.add(gem);
         }
 
@@ -172,19 +210,19 @@ export class GoldenSkin extends BaseSkin {
             );
 
             shader.fragmentShader = shader.fragmentShader.replace(
-                '#include <output_fragment>',
-                'float shimmerA = 0.5 + 0.5 * sin(vGoldWorldPos.x * 6.8 + uGoldTime * 2.6);\n'
-                + 'float shimmerB = 0.5 + 0.5 * sin(vGoldWorldPos.y * 8.9 - uGoldTime * 2.1);\n'
-                + 'float shimmerC = 0.5 + 0.5 * sin(vGoldWorldPos.z * 5.2 + uGoldTime * 1.4);\n'
-                + 'float shimmer = clamp((shimmerA * 0.45 + shimmerB * 0.35 + shimmerC * 0.20), 0.0, 1.0);\n'
-                + 'float streak = smoothstep(0.72, 1.0, shimmer);\n'
-                + 'vec3 goldSheen = vec3(1.00, 0.86, 0.45);\n'
-                + 'outgoingLight += goldSheen * (0.10 + streak * 0.65);\n'
-                + '#include <output_fragment>'
+                '#include <emissivemap_fragment>',
+                '#include <emissivemap_fragment>\n'
+                + 'float lineA = 0.5 + 0.5 * sin(vGoldWorldPos.x * 11.0 + uGoldTime * 4.0);\n'
+                + 'float lineB = 0.5 + 0.5 * sin(vGoldWorldPos.y * 7.5 - uGoldTime * 3.3);\n'
+                + 'float lineC = 0.5 + 0.5 * sin((vGoldWorldPos.x + vGoldWorldPos.y) * 6.2 + uGoldTime * 2.4);\n'
+                + 'float shimmer = max(lineA, max(lineB * 0.86, lineC * 0.72));\n'
+                + 'float streak = smoothstep(0.70, 0.99, shimmer);\n'
+                + 'vec3 shimmerColor = vec3(1.00, 0.90, 0.52);\n'
+                + 'totalEmissiveRadiance += shimmerColor * (0.10 + streak * 0.95);'
             );
         };
 
-        material.customProgramCacheKey = () => 'golden-shimmer-v1';
+        material.customProgramCacheKey = () => 'golden-shimmer-v2';
     }
 
     _applyGoldenMaterials() {
@@ -210,12 +248,12 @@ export class GoldenSkin extends BaseSkin {
                 mat.map = this._getFaceTexture(mat.name);
                 mat.color.setHex(0xffffff);
                 mat.emissive.copy(GOLD_EMISSIVE);
-                mat.emissiveIntensity = mat.name === 'h' ? 0.05 : 0.12;
+                mat.emissiveIntensity = mat.name === 'h' ? 0.22 : 0.34;
                 mat.transparent = false;
                 mat.opacity = 1;
                 mat.depthWrite = true;
                 mat.metalness = mat.name === 'h' ? 0.86 : 0.92;
-                mat.roughness = mat.name === 'h' ? 0.30 : 0.22;
+                mat.roughness = mat.name === 'h' ? 0.26 : 0.18;
                 this._installGoldShimmer(mat);
                 mat.needsUpdate = true;
             }
@@ -274,6 +312,7 @@ export class GoldenSkin extends BaseSkin {
 
     apply() {
         this._time = 0;
+        this._ensureEnvironment();
         this._applyGoldenMaterials();
     }
 
@@ -297,6 +336,7 @@ export class GoldenSkin extends BaseSkin {
         this._restoreMaterials();
         this._disposeGems();
         this._disposeTextures();
+        this._restoreEnvironment();
     }
 
     onMaterialChange() {
