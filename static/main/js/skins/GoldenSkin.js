@@ -147,6 +147,76 @@ export class GoldenSkin extends BaseSkin {
         return light;
     }
 
+    _ensureGemGroup(mesh) {
+        let group = this._gemsByMeshId.get(mesh.id);
+        if (!group) {
+            group = new THREE.Group();
+            group.name = 'golden-gems';
+            mesh.add(group);
+            this._gemsByMeshId.set(mesh.id, group);
+        }
+
+        if (group.children.length === 6) {
+            return group;
+        }
+
+        for (const child of group.children) {
+            child.material?.dispose?.();
+        }
+        group.clear();
+
+        for (let faceIndex = 0; faceIndex < 6; faceIndex++) {
+            const gem = new THREE.Mesh(this._gemGeometry, this._createGemMaterial('w'));
+            const normal = this._faceNormalByIndex(faceIndex);
+            gem.position.copy(normal).multiplyScalar(0.512);
+            gem.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+            gem.scale.set(1.18, 1.18, 0.68);
+            gem.visible = false;
+            gem.userData.faceIndex = faceIndex;
+            gem.userData.gemLetter = 'h';
+            this._installGoldShimmer(gem.material);
+            group.add(gem);
+        }
+
+        return group;
+    }
+
+    _applyLetterToGem(gem, letter, coloredFaceCount) {
+        const mat = gem.material;
+        const colorHex = FACE_MARKER[letter];
+        const hasColor = Boolean(colorHex);
+        gem.visible = hasColor;
+        if (!hasColor) {
+            if (gem.userData.glowLight) {
+                gem.remove(gem.userData.glowLight);
+                gem.userData.glowLight = null;
+            }
+            gem.userData.gemLetter = 'h';
+            return;
+        }
+
+        if (gem.userData.gemLetter !== letter) {
+            const color = new THREE.Color(colorHex);
+            mat.color.copy(color);
+            mat.emissive.copy(color).multiplyScalar(0.16);
+            mat.attenuationColor.copy(color);
+            gem.userData.gemLetter = letter;
+        }
+
+        const shouldGlow = this._shouldAttachGemGlow(coloredFaceCount);
+        if (shouldGlow) {
+            if (!gem.userData.glowLight) {
+                gem.userData.glowLight = this._createGemGlowLight(letter);
+                gem.add(gem.userData.glowLight);
+            }
+            gem.userData.glowLight.color.set(colorHex);
+            gem.userData.glowLight.intensity = this.gemGlowIntensity;
+        } else if (gem.userData.glowLight) {
+            gem.remove(gem.userData.glowLight);
+            gem.userData.glowLight = null;
+        }
+    }
+
     _shouldAttachGemGlow(coloredFaceCount) {
         if (this.gemGlowMode === 'off') {
             return false;
@@ -165,34 +235,10 @@ export class GoldenSkin extends BaseSkin {
             return;
         }
 
-        let group = this._gemsByMeshId.get(mesh.id);
-        if (!group) {
-            group = new THREE.Group();
-            group.name = 'golden-gems';
-            mesh.add(group);
-            this._gemsByMeshId.set(mesh.id, group);
-        }
-
-        for (const child of group.children) {
-            child.material?.dispose?.();
-        }
-        group.clear();
-
+        const group = this._ensureGemGroup(mesh);
         for (let faceIndex = 0; faceIndex < 6; faceIndex++) {
-            const letter = letters[faceIndex];
-            if (!FACE_MARKER[letter]) continue;
-
-            const gem = new THREE.Mesh(this._gemGeometry, this._createGemMaterial(letter));
-            const normal = this._faceNormalByIndex(faceIndex);
-            // Slight protrusion over the face plane with larger gemstone silhouette.
-            gem.position.copy(normal).multiplyScalar(0.512);
-            gem.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
-            gem.scale.set(1.18, 1.18, 0.68);
-            this._installGoldShimmer(gem.material);
-            if (this._shouldAttachGemGlow(coloredFaceCount)) {
-                gem.add(this._createGemGlowLight(letter));
-            }
-            group.add(gem);
+            const gem = group.children[faceIndex];
+            this._applyLetterToGem(gem, letters[faceIndex], coloredFaceCount);
         }
 
         this._gemSignatureByMeshId.set(mesh.id, signature);
