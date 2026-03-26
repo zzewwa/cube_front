@@ -220,15 +220,15 @@ export class GoldenSkin extends BaseSkin {
             );
 
             shader.fragmentShader = shader.fragmentShader.replace(
-                '#include <output_fragment>',
-                '#include <output_fragment>\n'
-                + 'float lineA = 0.5 + 0.5 * sin(vGoldWorldPos.x * 6.2 + uGoldTime * 1.4 * uGoldShimmerSpeed);\n'
+                '#include <dithering_fragment>',
+                'float lineA = 0.5 + 0.5 * sin(vGoldWorldPos.x * 6.2 + uGoldTime * 1.4 * uGoldShimmerSpeed);\n'
                 + 'float lineB = 0.5 + 0.5 * sin(vGoldWorldPos.y * 4.8 - uGoldTime * 1.1 * uGoldShimmerSpeed);\n'
                 + 'float lineC = 0.5 + 0.5 * sin((vGoldWorldPos.x + vGoldWorldPos.y) * 3.9 + uGoldTime * 0.9 * uGoldShimmerSpeed);\n'
                 + 'float shimmer = max(lineA * 0.58, max(lineB * 0.52, lineC * 0.42));\n'
-                + 'float streak = smoothstep(0.72, 1.0, shimmer);\n'
+                + 'float streak = smoothstep(0.62, 1.0, shimmer);\n'
                 + 'vec3 shimmerColor = vec3(1.00, 0.90, 0.52);\n'
-                + 'gl_FragColor.rgb += shimmerColor * uGoldShimmerAmount * (0.06 + streak * 0.55);'
+                + 'gl_FragColor.rgb += shimmerColor * uGoldShimmerAmount * (0.10 + streak * 0.95);\n'
+                + '#include <dithering_fragment>'
             );
         };
 
@@ -339,9 +339,9 @@ export class GoldenSkin extends BaseSkin {
                     shader.uniforms.uGoldShimmerSpeed.value = this.shimmerSpeed;
                 }
 
-                // Fallback pulse keeps response visible even if driver skips shader patching.
+                // Strong fallback pulse keeps response visible even if shader patching is skipped.
                 const pulse = 0.5 + 0.5 * Math.sin(this._time * this.shimmerSpeed * 2.0);
-                mat.emissiveIntensity = (mat.name === 'h' ? 0.06 : 0.10) + this.shimmerAmount * 0.05 * pulse;
+                mat.emissiveIntensity = (mat.name === 'h' ? 0.08 : 0.12) + this.shimmerAmount * 0.28 * pulse;
             }
         }
 
@@ -379,6 +379,8 @@ export class GoldenSkin extends BaseSkin {
                     shader.uniforms.uGoldShimmerAmount.value = this.shimmerAmount;
                     shader.uniforms.uGoldShimmerSpeed.value = this.shimmerSpeed;
                 }
+                const pulse = 0.5 + 0.5 * Math.sin(this._time * this.shimmerSpeed * 2.0);
+                mat.emissiveIntensity = (mat.name === 'h' ? 0.08 : 0.12) + this.shimmerAmount * 0.28 * pulse;
             }
         }
     }
