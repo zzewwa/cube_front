@@ -29,6 +29,13 @@ export class RubiksCube {
         this.cubeNetWidget = null;
         this.statusElement = null;
         this._lastSolvedState = null;
+        this.fpsElement = null;
+        this._fpsFrames = 0;
+        this._fpsWindowStart = performance.now();
+        this._fpsLastFrameAt = performance.now();
+        this._fpsCurrent = 0;
+        this._fpsAvg = 0;
+        this._fpsSamples = 0;
         this.cubeNetStickers = {
             u: [],
             l: [],
@@ -289,6 +296,7 @@ export class RubiksCube {
         if (this.statusElement) {
             this.statusElement.addEventListener('click', () => this.resetCube());
         }
+        this.initFpsOverlay();
 
         try {
             this.restoreCubeStateFromCookie();
@@ -644,6 +652,48 @@ export class RubiksCube {
         this.statusElement.textContent = isSolved ? 'Собран' : 'Не собран';
         this.statusElement.classList.toggle('is-solved', isSolved);
         this.statusElement.classList.toggle('is-unsolved', !isSolved);
+    }
+
+    initFpsOverlay() {
+        let node = document.getElementById('cube-fps');
+        if (!node) {
+            node = document.createElement('div');
+            node.id = 'cube-fps';
+            node.className = 'cube-fps';
+            document.body.appendChild(node);
+        }
+        this.fpsElement = node;
+        this.fpsElement.textContent = 'FPS: -- | AVG: --';
+    }
+
+    updateFpsCounter() {
+        if (!this.fpsElement) {
+            return;
+        }
+
+        const now = performance.now();
+        const frameDelta = now - this._fpsLastFrameAt;
+        this._fpsLastFrameAt = now;
+
+        if (frameDelta > 0) {
+            const instant = 1000 / frameDelta;
+            this._fpsCurrent = Math.round(instant);
+        }
+
+        this._fpsFrames += 1;
+        const windowDuration = now - this._fpsWindowStart;
+        if (windowDuration >= 500) {
+            const windowFps = (this._fpsFrames * 1000) / windowDuration;
+            this._fpsSamples += 1;
+            this._fpsAvg += (windowFps - this._fpsAvg) / this._fpsSamples;
+
+            const currentText = String(this._fpsCurrent).padStart(2, ' ');
+            const avgText = String(Math.round(this._fpsAvg)).padStart(2, ' ');
+            this.fpsElement.textContent = `FPS: ${currentText} | AVG: ${avgText}`;
+
+            this._fpsFrames = 0;
+            this._fpsWindowStart = now;
+        }
     }
 
     updateCubeNet() {
@@ -1017,6 +1067,7 @@ export class RubiksCube {
         this.updateGeneralRotation();
         this.updateRowRotations();
         this.updateCubeNet();
+        this.updateFpsCounter();
 
         this.controls.update();
         this.renderer.render(this.scene, this.camera);
