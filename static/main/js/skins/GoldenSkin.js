@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { BaseSkin } from './BaseSkin.js';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 const GOLD_EMISSIVE = new THREE.Color('#4f3600');
 const FACE_MARKER = {
@@ -21,41 +20,9 @@ export class GoldenSkin extends BaseSkin {
         this._gemsByMeshId = new Map();
         this._gemSignatureByMeshId = new Map();
         this._gemGeometry = new THREE.IcosahedronGeometry(0.115, 0);
-        this._ownedEnvironment = null;
-        this._previousEnvironment = null;
         this.shimmerAmount = cube.config.runtime?.golden?.shimmer ?? 0.18;
         this.shimmerSpeed = cube.config.runtime?.golden?.shimmerSpeed ?? 1.0;
         this._time = 0;
-    }
-
-    _ensureEnvironment() {
-        const scene = this.cube.renderEngine?.scene;
-        const renderer = this.cube.renderEngine?.renderer;
-        if (!scene || !renderer || scene.environment) {
-            return;
-        }
-
-        const pmrem = new THREE.PMREMGenerator(renderer);
-        const envRT = pmrem.fromScene(new RoomEnvironment(), 0.04);
-        this._previousEnvironment = scene.environment;
-        scene.environment = envRT.texture;
-        this._ownedEnvironment = { pmrem, envRT };
-    }
-
-    _restoreEnvironment() {
-        if (!this._ownedEnvironment) {
-            return;
-        }
-
-        const scene = this.cube.renderEngine?.scene;
-        if (scene && scene.environment === this._ownedEnvironment.envRT.texture) {
-            scene.environment = this._previousEnvironment;
-        }
-
-        this._ownedEnvironment.envRT.dispose();
-        this._ownedEnvironment.pmrem.dispose();
-        this._ownedEnvironment = null;
-        this._previousEnvironment = null;
     }
 
     _createFaceTexture(letter) {
@@ -136,9 +103,9 @@ export class GoldenSkin extends BaseSkin {
         return new THREE.MeshPhysicalMaterial({
             color,
             emissive,
-            emissiveIntensity: 0.08,
+            emissiveIntensity: 0.02,
             metalness: 0.0,
-            roughness: 0.03,
+            roughness: 0.06,
             transmission: 0.98,
             thickness: 0.55,
             ior: 1.52,
@@ -146,7 +113,7 @@ export class GoldenSkin extends BaseSkin {
             attenuationColor: color,
             clearcoat: 1.0,
             clearcoatRoughness: 0.02,
-            envMapIntensity: 1.35,
+            envMapIntensity: 0.25,
             flatShading: true,
         });
     }
@@ -216,18 +183,19 @@ export class GoldenSkin extends BaseSkin {
 
             shader.fragmentShader = shader.fragmentShader.replace(
                 '#include <common>',
-                '#include <common>\nuniform float uGoldTime;\nuniform float uGoldShimmerAmount;\nuniform float uGoldShimmerSpeed;\nvarying vec3 vGoldWorldPos;'
+                '#include <common>\nuniform float uGoldTime;\nuniform float uGoldShimmerAmount;\nuniform float uGoldShimmerSpeed;\nvarying vec3 vGoldWorldPos;\nvarying vec2 vMapUv;'
             );
 
             shader.fragmentShader = shader.fragmentShader.replace(
                 '#include <dithering_fragment>',
-                'float lineA = 0.5 + 0.5 * sin(vGoldWorldPos.x * 6.2 + uGoldTime * 1.4 * uGoldShimmerSpeed);\n'
-                + 'float lineB = 0.5 + 0.5 * sin(vGoldWorldPos.y * 4.8 - uGoldTime * 1.1 * uGoldShimmerSpeed);\n'
-                + 'float lineC = 0.5 + 0.5 * sin((vGoldWorldPos.x + vGoldWorldPos.y) * 3.9 + uGoldTime * 0.9 * uGoldShimmerSpeed);\n'
-                + 'float shimmer = max(lineA * 0.58, max(lineB * 0.52, lineC * 0.42));\n'
-                + 'float streak = smoothstep(0.62, 1.0, shimmer);\n'
-                + 'vec3 shimmerColor = vec3(1.00, 0.90, 0.52);\n'
-                + 'gl_FragColor.rgb += shimmerColor * uGoldShimmerAmount * (0.10 + streak * 0.95);\n'
+                'float localA = 0.5 + 0.5 * sin(vMapUv.x * 70.0 + uGoldTime * 2.0 * uGoldShimmerSpeed);\n'
+                + 'float localB = 0.5 + 0.5 * sin(vMapUv.y * 58.0 - uGoldTime * 1.7 * uGoldShimmerSpeed);\n'
+                + 'float localC = 0.5 + 0.5 * sin((vMapUv.x + vMapUv.y) * 38.0 + uGoldTime * 1.2 * uGoldShimmerSpeed);\n'
+                + 'float localShimmer = max(localA * 0.50, max(localB * 0.45, localC * 0.35));\n'
+                + 'float streak = smoothstep(0.86, 1.0, localShimmer);\n'
+                + 'vec3 shimmerColor = vec3(1.0, 0.89, 0.50);\n'
+                + 'float shimmerStrength = uGoldShimmerAmount * (0.02 + streak * 0.20);\n'
+                + 'gl_FragColor.rgb += shimmerColor * shimmerStrength;\n'
                 + '#include <dithering_fragment>'
             );
         };
@@ -259,7 +227,7 @@ export class GoldenSkin extends BaseSkin {
                 mat.map = this._getFaceTexture(mat.name);
                 mat.color.setHex(0xffffff);
                 mat.emissive.copy(GOLD_EMISSIVE);
-                mat.emissiveIntensity = mat.name === 'h' ? 0.06 : 0.10;
+                mat.emissiveIntensity = mat.name === 'h' ? 0.02 : 0.03;
                 mat.transparent = false;
                 mat.opacity = 1;
                 mat.depthWrite = true;
@@ -324,7 +292,6 @@ export class GoldenSkin extends BaseSkin {
 
     apply() {
         this._time = 0;
-        this._ensureEnvironment();
         this._applyGoldenMaterials();
     }
 
@@ -339,9 +306,7 @@ export class GoldenSkin extends BaseSkin {
                     shader.uniforms.uGoldShimmerSpeed.value = this.shimmerSpeed;
                 }
 
-                // Strong fallback pulse keeps response visible even if shader patching is skipped.
-                const pulse = 0.5 + 0.5 * Math.sin(this._time * this.shimmerSpeed * 2.0);
-                mat.emissiveIntensity = (mat.name === 'h' ? 0.08 : 0.12) + this.shimmerAmount * 0.28 * pulse;
+                mat.emissiveIntensity = (mat.name === 'h' ? 0.02 : 0.03) + this.shimmerAmount * 0.03;
             }
         }
 
@@ -354,7 +319,6 @@ export class GoldenSkin extends BaseSkin {
         this._restoreMaterials();
         this._disposeGems();
         this._disposeTextures();
-        this._restoreEnvironment();
     }
 
     onMaterialChange() {
@@ -367,7 +331,7 @@ export class GoldenSkin extends BaseSkin {
             this.shimmerAmount = Math.min(1.2, Math.max(0.0, Number(goldenShimmer)));
         }
         if (goldenShimmerSpeed !== undefined) {
-            this.shimmerSpeed = Math.min(3.0, Math.max(0.1, Number(goldenShimmerSpeed)));
+            this.shimmerSpeed = Math.min(3.0, Math.max(0.0, Number(goldenShimmerSpeed)));
         }
 
         // Immediate visual feedback even before next frame/shader uniform tick.
@@ -379,8 +343,7 @@ export class GoldenSkin extends BaseSkin {
                     shader.uniforms.uGoldShimmerAmount.value = this.shimmerAmount;
                     shader.uniforms.uGoldShimmerSpeed.value = this.shimmerSpeed;
                 }
-                const pulse = 0.5 + 0.5 * Math.sin(this._time * this.shimmerSpeed * 2.0);
-                mat.emissiveIntensity = (mat.name === 'h' ? 0.08 : 0.12) + this.shimmerAmount * 0.28 * pulse;
+                mat.emissiveIntensity = (mat.name === 'h' ? 0.02 : 0.03) + this.shimmerAmount * 0.03;
             }
         }
     }
