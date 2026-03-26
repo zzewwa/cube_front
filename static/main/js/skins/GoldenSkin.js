@@ -23,6 +23,8 @@ export class GoldenSkin extends BaseSkin {
         this._gemGeometry = new THREE.IcosahedronGeometry(0.115, 0);
         this._ownedEnvironment = null;
         this._previousEnvironment = null;
+        this.shimmerAmount = cube.config.runtime?.golden?.shimmer ?? 0.11;
+        this.shimmerSpeed = cube.config.runtime?.golden?.shimmerSpeed ?? 1.0;
         this._time = 0;
     }
 
@@ -193,7 +195,13 @@ export class GoldenSkin extends BaseSkin {
         material.userData.goldenShimmerInstalled = true;
         material.onBeforeCompile = (shader) => {
             shader.uniforms.uGoldTime = { value: this._time };
-            this._shaderTimeByMaterial.set(material, shader.uniforms.uGoldTime);
+            shader.uniforms.uGoldShimmerAmount = { value: this.shimmerAmount };
+            shader.uniforms.uGoldShimmerSpeed = { value: this.shimmerSpeed };
+            this._shaderTimeByMaterial.set(material, {
+                time: shader.uniforms.uGoldTime,
+                amount: shader.uniforms.uGoldShimmerAmount,
+                speed: shader.uniforms.uGoldShimmerSpeed,
+            });
 
             shader.vertexShader = shader.vertexShader.replace(
                 '#include <common>',
@@ -207,19 +215,19 @@ export class GoldenSkin extends BaseSkin {
 
             shader.fragmentShader = shader.fragmentShader.replace(
                 '#include <common>',
-                '#include <common>\nuniform float uGoldTime;\nvarying vec3 vGoldWorldPos;'
+                '#include <common>\nuniform float uGoldTime;\nuniform float uGoldShimmerAmount;\nuniform float uGoldShimmerSpeed;\nvarying vec3 vGoldWorldPos;'
             );
 
             shader.fragmentShader = shader.fragmentShader.replace(
                 '#include <emissivemap_fragment>',
                 '#include <emissivemap_fragment>\n'
-                + 'float lineA = 0.5 + 0.5 * sin(vGoldWorldPos.x * 6.2 + uGoldTime * 1.4);\n'
-                + 'float lineB = 0.5 + 0.5 * sin(vGoldWorldPos.y * 4.8 - uGoldTime * 1.1);\n'
-                + 'float lineC = 0.5 + 0.5 * sin((vGoldWorldPos.x + vGoldWorldPos.y) * 3.9 + uGoldTime * 0.9);\n'
+                + 'float lineA = 0.5 + 0.5 * sin(vGoldWorldPos.x * 6.2 + uGoldTime * 1.4 * uGoldShimmerSpeed);\n'
+                + 'float lineB = 0.5 + 0.5 * sin(vGoldWorldPos.y * 4.8 - uGoldTime * 1.1 * uGoldShimmerSpeed);\n'
+                + 'float lineC = 0.5 + 0.5 * sin((vGoldWorldPos.x + vGoldWorldPos.y) * 3.9 + uGoldTime * 0.9 * uGoldShimmerSpeed);\n'
                 + 'float shimmer = max(lineA * 0.58, max(lineB * 0.52, lineC * 0.42));\n'
                 + 'float streak = smoothstep(0.82, 1.0, shimmer);\n'
                 + 'vec3 shimmerColor = vec3(1.00, 0.90, 0.52);\n'
-                + 'totalEmissiveRadiance += shimmerColor * (0.015 + streak * 0.11);'
+                + 'totalEmissiveRadiance += shimmerColor * uGoldShimmerAmount * (0.04 + streak * 0.35);'
             );
         };
 
@@ -321,9 +329,11 @@ export class GoldenSkin extends BaseSkin {
         this._time = performance.now() * 0.001;
         for (const mats of this.cube.materialsByObjectId.values()) {
             for (const mat of mats) {
-                const timeUniform = this._shaderTimeByMaterial.get(mat);
-                if (timeUniform) {
-                    timeUniform.value = this._time;
+                const uniforms = this._shaderTimeByMaterial.get(mat);
+                if (uniforms) {
+                    uniforms.time.value = this._time;
+                    uniforms.amount.value = this.shimmerAmount;
+                    uniforms.speed.value = this.shimmerSpeed;
                 }
             }
         }
@@ -343,5 +353,14 @@ export class GoldenSkin extends BaseSkin {
     onMaterialChange() {
         // Keep the golden look stable even when global material sliders change.
         this._applyGoldenMaterials();
+    }
+
+    setParams({ goldenShimmer, goldenShimmerSpeed }) {
+        if (goldenShimmer !== undefined) {
+            this.shimmerAmount = Math.min(0.35, Math.max(0.0, Number(goldenShimmer)));
+        }
+        if (goldenShimmerSpeed !== undefined) {
+            this.shimmerSpeed = Math.min(3.0, Math.max(0.1, Number(goldenShimmerSpeed)));
+        }
     }
 }

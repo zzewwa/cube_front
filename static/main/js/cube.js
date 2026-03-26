@@ -1154,6 +1154,16 @@ export class RubiksCube {
         });
     }
 
+    applyGoldenSettings(shimmer, shimmerSpeed) {
+        this.config.runtime.golden = this.config.runtime.golden ?? {};
+        this.config.runtime.golden.shimmer = Math.min(0.35, Math.max(0.0, Number(shimmer)));
+        this.config.runtime.golden.shimmerSpeed = Math.min(3.0, Math.max(0.1, Number(shimmerSpeed)));
+        this.activeSkin?.setParams({
+            goldenShimmer: this.config.runtime.golden.shimmer,
+            goldenShimmerSpeed: this.config.runtime.golden.shimmerSpeed,
+        });
+    }
+
     applySkin(skinId) {
         this.config.runtime.skinId = skinId || 'classic';
         this.activeSkin?.detach();
