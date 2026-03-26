@@ -500,6 +500,8 @@ const initApp = () => {
     const lanternEmbersRow   = document.getElementById('cfg-lantern-embers-row');
     const spheresRadiusRow   = document.getElementById('cfg-spheres-radius-row');
     const roundedRow         = document.getElementById('cfg-rounded-row');
+    const metalnessRow       = document.getElementById('cfg-metalness-row');
+    const roughnessRow       = document.getElementById('cfg-roughness-row');
 
     const syncLanternRows = () => {
         const visible = skinId === 'lantern';
@@ -515,6 +517,13 @@ const initApp = () => {
         }
         if (radiusRow) {
             radiusRow.style.display = isCubieSkin && roundedEnabled ? '' : 'none';
+        }
+        const showMaterialSliders = skinId !== 'golden';
+        if (metalnessRow) {
+            metalnessRow.style.display = showMaterialSliders ? '' : 'none';
+        }
+        if (roughnessRow) {
+            roughnessRow.style.display = showMaterialSliders ? '' : 'none';
         }
     };
 
