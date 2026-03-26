@@ -246,6 +246,15 @@ export class RubiksCube {
             KeyV: [20, 21]
         };
 
+        // keymap: slot (original KeyX code) -> currently assigned KeyboardEvent.code
+        this.keymap = {
+            KeyQ: 'KeyQ', KeyW: 'KeyW', KeyE: 'KeyE',
+            KeyA: 'KeyA', KeyS: 'KeyS', KeyD: 'KeyD',
+            KeyR: 'KeyR', KeyF: 'KeyF', KeyV: 'KeyV'
+        };
+        // reverse: assigned code -> slot
+        this._reverseKeymap = { ...this.keymap };
+
         this.rowGroupCubeNames = {
             KeyQ: ['1', '4', '7', '10', '13', '16', '19', '22', '25'],
             KeyW: ['2', '5', '8', '11', '14', '17', '20', '23', '26'],
@@ -369,6 +378,18 @@ export class RubiksCube {
         // Event listeners
         window.addEventListener('resize', () => this.onWindowResize(), false);
         document.addEventListener('keydown', (e) => this.handleKeyDown(e));
+
+        // Zoom state (stepped by default)
+        this._zoomMode = 'stepped';
+        this._zoomStep = 1.5;
+        this._zoomSmooth = 1.0;
+        this._zoomMin = 5;
+        this._zoomMax = 30;
+        this._steppedZoomPending = 0;
+        this.controls.minDistance = this._zoomMin;
+        this.controls.maxDistance = this._zoomMax;
+        this.controls.enableZoom = false;
+        this.renderer.domElement.addEventListener('wheel', (e) => this._handleWheel(e), { passive: false });
     }
 
     createCubeTexture(path, name) {
@@ -697,10 +718,11 @@ export class RubiksCube {
             return;
         }
 
-        if (this.rowKeyToRotationIndex[event.code]) {
+        const slotCode = this._reverseKeymap[event.code];
+        if (slotCode && this.rowKeyToRotationIndex[slotCode]) {
             event.preventDefault();
-            const [forwardIndex, reverseIndex] = this.rowKeyToRotationIndex[event.code];
-            this.enqueueRowRotation(event.code, event.shiftKey ? reverseIndex : forwardIndex);
+            const [forwardIndex, reverseIndex] = this.rowKeyToRotationIndex[slotCode];
+            this.enqueueRowRotation(slotCode, event.shiftKey ? reverseIndex : forwardIndex);
         }
     }
 
@@ -986,6 +1008,7 @@ export class RubiksCube {
     }
 
     render() {
+        this._applyZoomDelta();
         this.startNextGeneralRotation();
         this.startPendingRowRotations();
 
@@ -1032,6 +1055,66 @@ export class RubiksCube {
     applySpeed(stepsPerTurn) {
         this.stepsPerTurn = stepsPerTurn;
         this.stepAngle = Math.PI / (2 * this.stepsPerTurn);
+    }
+
+    applyKeymap(km) {
+        this.keymap = { ...this.keymap, ...km };
+        this._buildReverseKeymap();
+    }
+
+    _buildReverseKeymap() {
+        this._reverseKeymap = {};
+        for (const [slot, code] of Object.entries(this.keymap)) {
+            this._reverseKeymap[code] = slot;
+        }
+    }
+
+    applyRotateSensitivity(sensitivity) {
+        this.controls.rotateSpeed = sensitivity;
+    }
+
+    applyZoomSettings(mode, step, smooth, min, max) {
+        this._zoomMode = mode;
+        this._zoomStep = step;
+        this._zoomSmooth = smooth;
+        this._zoomMin = min;
+        this._zoomMax = max;
+        this.controls.minDistance = min;
+        this.controls.maxDistance = max;
+        if (mode === 'smooth') {
+            this.controls.enableZoom = true;
+            this.controls.zoomSpeed = smooth;
+        } else {
+            this.controls.enableZoom = false;
+        }
+        const dist = this.camera.position.length();
+        const clamped = Math.max(min, Math.min(max, dist));
+        if (dist !== clamped) {
+            this.camera.position.setLength(clamped);
+        }
+    }
+
+    _handleWheel(event) {
+        if (this._zoomMode !== 'stepped') {
+            return;
+        }
+        event.preventDefault();
+        const dir = event.deltaY > 0 ? 1 : -1;
+        this._steppedZoomPending += dir;
+    }
+
+    _applyZoomDelta() {
+        if (this._steppedZoomPending === 0) {
+            return;
+        }
+        const pos = this.camera.position;
+        const currentDist = pos.length();
+        const targetDist = Math.max(
+            this._zoomMin,
+            Math.min(this._zoomMax, currentDist + this._steppedZoomPending * this._zoomStep)
+        );
+        pos.setLength(targetDist);
+        this._steppedZoomPending = 0;
     }
 
     applyGeometry(enabled, radius) {

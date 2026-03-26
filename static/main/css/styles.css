@@ -732,6 +732,12 @@ body.is-ready .menu-toggle {
     border-bottom: 1px solid var(--line);
 }
 
+.ctrl-row--stacked {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
+}
+
 .ctrl-group .ctrl-row:last-child {
     border-bottom: none;
 }
@@ -747,6 +753,46 @@ body.is-ready .menu-toggle {
     align-items: center;
     gap: 3px;
     flex-shrink: 0;
+}
+
+.ctrl-keybind {
+    min-width: 24px;
+    height: 22px;
+    padding: 0 5px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.07);
+    color: var(--text-main);
+    font-size: 0.72rem;
+    font-family: inherit;
+    font-weight: 600;
+    white-space: nowrap;
+    letter-spacing: 0;
+    cursor: pointer;
+}
+
+.ctrl-keybind:hover,
+.ctrl-keybind.is-listening {
+    border-color: var(--accent);
+}
+
+.ctrl-input-label {
+    font-size: 0.83rem;
+    color: var(--text-soft);
+}
+
+.ctrl-radio-group {
+    display: flex;
+    gap: 12px;
+}
+
+.ctrl-radio {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.83rem;
+    color: var(--text-soft);
 }
 
 .ctrl-caption {

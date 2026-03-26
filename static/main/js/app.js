@@ -9,6 +9,19 @@ const initApp = () => {
     const sceneBackdrop = document.querySelector('.scene-backdrop');
     const settingsCookies = new CookieSettings();
     const savedSettings = settingsCookies.loadSettings() ?? {};
+    const defaultKeymap = {
+        KeyQ: 'KeyQ', KeyW: 'KeyW', KeyE: 'KeyE',
+        KeyA: 'KeyA', KeyS: 'KeyS', KeyD: 'KeyD',
+        KeyR: 'KeyR', KeyF: 'KeyF', KeyV: 'KeyV'
+    };
+
+    let keymap = { ...defaultKeymap, ...(savedSettings.keymap ?? {}) };
+    let rotateSensitivity = savedSettings.rotateSensitivity ?? 1.0;
+    let zoomMode = savedSettings.zoomMode ?? 'stepped';
+    let zoomStep = savedSettings.zoomStep ?? 1.5;
+    let zoomSmoothSpeed = savedSettings.zoomSmoothSpeed ?? 1.0;
+    let zoomMin = savedSettings.zoomMin ?? 5;
+    let zoomMax = savedSettings.zoomMax ?? 30;
 
     if (sceneBackdrop) {
         const cubeCookies = new CookieCube();
@@ -29,7 +42,14 @@ const initApp = () => {
                 roundedRadius,
                 speed: Number(document.getElementById('cfg-speed')?.value ?? 30),
                 settingsAutoRotateEnabled,
-                cubeNetVisible: cubeNetToggle?.checked ?? true
+                cubeNetVisible: cubeNetToggle?.checked ?? true,
+                keymap,
+                rotateSensitivity,
+                zoomMode,
+                zoomStep,
+                zoomSmoothSpeed,
+                zoomMin,
+                zoomMax
             });
         };
 
@@ -109,6 +129,18 @@ const initApp = () => {
     setControlValue('cfg-speed', savedSettings.speed);
     setControlValue('cfg-settings-autorotate', savedSettings.settingsAutoRotateEnabled);
     setControlValue('cfg-cube-net', savedSettings.cubeNetVisible);
+    setControlValue('cfg-rotate-speed', rotateSensitivity);
+    setControlValue('cfg-zoom-step', zoomStep);
+    setControlValue('cfg-zoom-smooth-speed', zoomSmoothSpeed);
+    setControlValue('cfg-zoom-min', zoomMin);
+    setControlValue('cfg-zoom-max', zoomMax);
+
+    const zoomSteppedInput = document.getElementById('cfg-zoom-stepped');
+    const zoomSmoothInput = document.getElementById('cfg-zoom-smooth');
+    if (zoomSteppedInput && zoomSmoothInput) {
+        zoomSteppedInput.checked = zoomMode !== 'smooth';
+        zoomSmoothInput.checked = zoomMode === 'smooth';
+    }
 
     let settingsAutoRotateEnabled = settingsAutoRotateToggle?.checked ?? true;
 
@@ -226,6 +258,33 @@ const initApp = () => {
         }
         input.addEventListener('change', () => fn(input.checked));
         fn(input.checked);
+    };
+
+    const keybindButtons = Array.from(document.querySelectorAll('[data-keybind]'));
+    let pendingKeybindSlot = null;
+
+    const formatKeyCode = (code) => {
+        if (!code) return '';
+        if (code.startsWith('Key')) return code.slice(3).toUpperCase();
+        if (code.startsWith('Digit')) return code.slice(5);
+        return code;
+    };
+
+    const refreshKeybindButtons = () => {
+        keybindButtons.forEach((button) => {
+            const slot = button.dataset.keybind;
+            if (!slot) return;
+            button.textContent = pendingKeybindSlot === slot ? '...' : formatKeyCode(keymap[slot]);
+            button.classList.toggle('is-listening', pendingKeybindSlot === slot);
+        });
+    };
+
+    const applyControlSettings = () => {
+        const cube = getCube();
+        if (!cube) return;
+        cube.applyKeymap(keymap);
+        cube.applyRotateSensitivity(rotateSensitivity);
+        cube.applyZoomSettings(zoomMode, zoomStep, zoomSmoothSpeed, zoomMin, zoomMax);
     };
 
     let bgColor = savedSettings.bgColor ?? '#2c3640';
@@ -357,6 +416,111 @@ const initApp = () => {
     onCheck('cfg-cube-net', (value) => {
         getCube()?.setCubeNetVisible(value);
     });
+
+    keybindButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            pendingKeybindSlot = button.dataset.keybind ?? null;
+            refreshKeybindButtons();
+        });
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (!pendingKeybindSlot) {
+            return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        if (event.code === 'Escape') {
+            pendingKeybindSlot = null;
+            refreshKeybindButtons();
+            return;
+        }
+
+        if (!/^Key[A-Z]$/.test(event.code) && !/^Digit[0-9]$/.test(event.code)) {
+            return;
+        }
+
+        const previousSlot = Object.keys(keymap).find((slot) => keymap[slot] === event.code);
+        if (previousSlot && previousSlot !== pendingKeybindSlot) {
+            const oldCode = keymap[pendingKeybindSlot];
+            keymap[previousSlot] = oldCode;
+        }
+
+        keymap[pendingKeybindSlot] = event.code;
+        pendingKeybindSlot = null;
+        refreshKeybindButtons();
+        getCube()?.applyKeymap(keymap);
+    }, true);
+
+    const zoomStepRow = document.getElementById('ctrl-zoom-step-row');
+    const zoomSmoothRow = document.getElementById('ctrl-zoom-smooth-row');
+
+    const syncZoomRows = () => {
+        if (zoomStepRow) {
+            zoomStepRow.style.display = zoomMode === 'stepped' ? '' : 'none';
+        }
+        if (zoomSmoothRow) {
+            zoomSmoothRow.style.display = zoomMode === 'smooth' ? '' : 'none';
+        }
+    };
+
+    onRange('cfg-rotate-speed', 'cfg-rotate-speed-val', (value) => {
+        rotateSensitivity = value;
+        getCube()?.applyRotateSensitivity(value);
+    }, (value) => value.toFixed(2));
+
+    onRange('cfg-zoom-step', 'cfg-zoom-step-val', (value) => {
+        zoomStep = value;
+        getCube()?.applyZoomSettings(zoomMode, zoomStep, zoomSmoothSpeed, zoomMin, zoomMax);
+    }, (value) => value.toFixed(2));
+
+    onRange('cfg-zoom-smooth-speed', 'cfg-zoom-smooth-speed-val', (value) => {
+        zoomSmoothSpeed = value;
+        getCube()?.applyZoomSettings(zoomMode, zoomStep, zoomSmoothSpeed, zoomMin, zoomMax);
+    }, (value) => value.toFixed(2));
+
+    onRange('cfg-zoom-min', 'cfg-zoom-min-val', (value) => {
+        zoomMin = value;
+        if (zoomMin >= zoomMax) {
+            zoomMax = zoomMin + 0.5;
+            setControlValue('cfg-zoom-max', zoomMax);
+            const maxVal = document.getElementById('cfg-zoom-max-val');
+            if (maxVal) {
+                maxVal.textContent = zoomMax.toFixed(1);
+            }
+        }
+        getCube()?.applyZoomSettings(zoomMode, zoomStep, zoomSmoothSpeed, zoomMin, zoomMax);
+    }, (value) => value.toFixed(1));
+
+    onRange('cfg-zoom-max', 'cfg-zoom-max-val', (value) => {
+        zoomMax = value;
+        if (zoomMax <= zoomMin) {
+            zoomMin = zoomMax - 0.5;
+            setControlValue('cfg-zoom-min', zoomMin);
+            const minVal = document.getElementById('cfg-zoom-min-val');
+            if (minVal) {
+                minVal.textContent = zoomMin.toFixed(1);
+            }
+        }
+        getCube()?.applyZoomSettings(zoomMode, zoomStep, zoomSmoothSpeed, zoomMin, zoomMax);
+    }, (value) => value.toFixed(1));
+
+    [zoomSteppedInput, zoomSmoothInput].forEach((input) => {
+        input?.addEventListener('change', () => {
+            if (!input.checked) {
+                return;
+            }
+            zoomMode = input.value;
+            syncZoomRows();
+            getCube()?.applyZoomSettings(zoomMode, zoomStep, zoomSmoothSpeed, zoomMin, zoomMax);
+        });
+    });
+
+    refreshKeybindButtons();
+    syncZoomRows();
+    applyControlSettings();
 };
 
 if (document.readyState === 'loading') {
