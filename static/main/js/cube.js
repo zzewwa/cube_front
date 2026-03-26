@@ -27,6 +27,17 @@ export class RubiksCube {
         this.cubeMeshList = [];
         this.cubeNetVisible = true;
         this.cubeNetWidget = null;
+        this.statusElement = null;
+        this._lastSolvedState = null;
+        this.fpsElement = null;
+        this.debugOverlayEnabled = false;
+        this._fpsFrames = 0;
+        this._fpsWindowStart = performance.now();
+        this._fpsLastFrameAt = performance.now();
+        this._fpsCurrent = 0;
+        this._fpsAvg = 0;
+        this._fpsSamples = 0;
+        this._cubeNetDirty = true;
         this.cubeNetStickers = {
             u: [],
             l: [],
@@ -244,6 +255,15 @@ export class RubiksCube {
             KeyV: [20, 21]
         };
 
+        // keymap: slot (original KeyX code) -> currently assigned KeyboardEvent.code
+        this.keymap = {
+            KeyQ: 'KeyQ', KeyW: 'KeyW', KeyE: 'KeyE',
+            KeyA: 'KeyA', KeyS: 'KeyS', KeyD: 'KeyD',
+            KeyR: 'KeyR', KeyF: 'KeyF', KeyV: 'KeyV'
+        };
+        // reverse: assigned code -> slot
+        this._reverseKeymap = { ...this.keymap };
+
         this.rowGroupCubeNames = {
             KeyQ: ['1', '4', '7', '10', '13', '16', '19', '22', '25'],
             KeyW: ['2', '5', '8', '11', '14', '17', '20', '23', '26'],
@@ -274,6 +294,11 @@ export class RubiksCube {
         
         this.init();
         this.initCubeNetWidget();
+        this.statusElement = document.getElementById('cube-status');
+        if (this.statusElement) {
+            this.statusElement.addEventListener('click', () => this.resetCube());
+        }
+        this.initFpsOverlay();
 
         try {
             this.restoreCubeStateFromCookie();
@@ -295,7 +320,7 @@ export class RubiksCube {
         
         // Renderer
         this.renderer = new THREE.WebGLRenderer({ antialias: true });
-        this.renderer.setPixelRatio(window.devicePixelRatio);
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.outputColorSpace = THREE.SRGBColorSpace;
         
@@ -363,6 +388,20 @@ export class RubiksCube {
         // Event listeners
         window.addEventListener('resize', () => this.onWindowResize(), false);
         document.addEventListener('keydown', (e) => this.handleKeyDown(e));
+
+        // Zoom state (stepped by default)
+        this._zoomMode = 'stepped';
+        this._zoomStep = 1.5;
+        this._zoomSmooth = 1.0;
+        this._zoomMin = 5;
+        this._zoomMax = 30;
+        this._steppedZoomPending = 0;
+        this._smoothZoomVelocity = 0;
+        this._smoothZoomDamping = 0.86;
+        this.controls.minDistance = this._zoomMin;
+        this.controls.maxDistance = this._zoomMax;
+        this.controls.enableZoom = false;
+        this.renderer.domElement.addEventListener('wheel', (e) => this._handleWheel(e), { passive: false });
     }
 
     createCubeTexture(path, name) {
@@ -476,6 +515,8 @@ export class RubiksCube {
             this.materialsByObjectId.set(cube.id, restoredMaterials);
         });
 
+        this._cubeNetDirty = true;
+
         return true;
     }
 
@@ -548,11 +589,128 @@ export class RubiksCube {
         }
     }
 
-    updateCubeNet() {
-        if (!this.cubeNetVisible || !this.cubeNetWidget) {
+    isCubeSolved(faceState) {
+        return Object.values(faceState).every((face) => {
+            const first = face[0];
+            return first !== 'h' && face.every((s) => s === first);
+        });
+    }
+
+    resetCube() {
+        // Cancel any active general rotation
+        if (this.activeGeneralRotation) {
+            for (const cube of [...this.activeGeneralRotation.group.children]) {
+                this.activeGeneralRotation.group.remove(cube);
+                this.scene.add(cube);
+            }
+            this.scene.remove(this.activeGeneralRotation.group);
+            this.activeGeneralRotation = null;
+        }
+
+        // Cancel any active row rotations
+        for (const keyCode of Object.keys(this.activeRowRotations)) {
+            const rot = this.activeRowRotations[keyCode];
+            if (rot) {
+                for (const cube of [...rot.group.children]) {
+                    rot.group.remove(cube);
+                    this.scene.add(cube);
+                }
+                this.scene.remove(rot.group);
+                this.activeRowRotations[keyCode] = null;
+            }
+        }
+
+        this.generalQueue = [];
+        this.pendingRowQueue = [];
+        this.undoHistory = [];
+
+        const maxCoord = Math.trunc(this.config.cube.size / 2);
+        const minCoord = -maxCoord;
+
+        for (const cube of this.cubeMeshList) {
+            const pos = this.position_of_cubes.get(cube.name);
+            if (!pos) continue;
+            const [x, y, z] = pos;
+
+            const oldMaterials = this.materialsByObjectId.get(cube.id) || cube.material;
+            for (const mat of oldMaterials) mat.dispose();
+
+            const newMaterials = this.createCubieMaterials(this.materialPalette, x, y, z, minCoord, maxCoord);
+            cube.material = newMaterials;
+            this.materialsByObjectId.set(cube.id, newMaterials);
+            cube.position.set(x, y, z);
+        }
+
+        if (this._metalness !== undefined) {
+            this.applyMaterialSettings(this._metalness, this._roughness);
+        }
+
+        this._lastSolvedState = null;
+        this._cubeNetDirty = true;
+    }
+
+    updateSolvedStatus(isSolved) {
+        if (!this.statusElement || this._lastSolvedState === isSolved) {
+            return;
+        }
+        this._lastSolvedState = isSolved;
+        this.statusElement.textContent = isSolved ? 'Собран' : 'Не собран';
+        this.statusElement.classList.toggle('is-solved', isSolved);
+        this.statusElement.classList.toggle('is-unsolved', !isSolved);
+    }
+
+    initFpsOverlay() {
+        let node = document.getElementById('cube-fps');
+        if (!node) {
+            node = document.createElement('div');
+            node.id = 'cube-fps';
+            node.className = 'cube-fps';
+            document.body.appendChild(node);
+        }
+        this.fpsElement = node;
+        this.fpsElement.classList.toggle('is-hidden', !this.debugOverlayEnabled);
+        this.fpsElement.textContent = 'FPS: -- | AVG: --';
+    }
+
+    setDebugOverlayEnabled(enabled) {
+        this.debugOverlayEnabled = Boolean(enabled);
+        if (!this.fpsElement) {
+            return;
+        }
+        this.fpsElement.classList.toggle('is-hidden', !this.debugOverlayEnabled);
+    }
+
+    updateFpsCounter() {
+        if (!this.fpsElement || !this.debugOverlayEnabled) {
             return;
         }
 
+        const now = performance.now();
+        const frameDelta = now - this._fpsLastFrameAt;
+        this._fpsLastFrameAt = now;
+
+        if (frameDelta > 0) {
+            const instant = 1000 / frameDelta;
+            this._fpsCurrent = Math.round(instant);
+        }
+
+        this._fpsFrames += 1;
+        const windowDuration = now - this._fpsWindowStart;
+        if (windowDuration >= 500) {
+            const windowFps = (this._fpsFrames * 1000) / windowDuration;
+            this._fpsSamples += 1;
+            this._fpsAvg += (windowFps - this._fpsAvg) / this._fpsSamples;
+
+            const currentText = String(this._fpsCurrent).padStart(2, ' ');
+            const avgText = String(Math.round(this._fpsAvg)).padStart(2, ' ');
+            this.fpsElement.textContent = `FPS: ${currentText} | AVG: ${avgText}`;
+
+            this._fpsFrames = 0;
+            this._fpsWindowStart = now;
+        }
+    }
+
+    updateCubeNet() {
         const maxCoord = Math.trunc(this.config.cube.size / 2);
         const faceState = {
             u: Array(9).fill('h'),
@@ -595,6 +753,12 @@ export class RubiksCube {
             }
         }
 
+        this.updateSolvedStatus(this.isCubeSolved(faceState));
+
+        if (!this.cubeNetVisible || !this.cubeNetWidget) {
+            return;
+        }
+
         for (const faceKey of Object.keys(faceState)) {
             const stickers = this.cubeNetStickers[faceKey];
             for (let index = 0; index < stickers.length; index++) {
@@ -620,10 +784,11 @@ export class RubiksCube {
             return;
         }
 
-        if (this.rowKeyToRotationIndex[event.code]) {
+        const slotCode = this._reverseKeymap[event.code];
+        if (slotCode && this.rowKeyToRotationIndex[slotCode]) {
             event.preventDefault();
-            const [forwardIndex, reverseIndex] = this.rowKeyToRotationIndex[event.code];
-            this.enqueueRowRotation(event.code, event.shiftKey ? reverseIndex : forwardIndex);
+            const [forwardIndex, reverseIndex] = this.rowKeyToRotationIndex[slotCode];
+            this.enqueueRowRotation(slotCode, event.shiftKey ? reverseIndex : forwardIndex);
         }
     }
 
@@ -811,6 +976,8 @@ export class RubiksCube {
         if (!rotation.isUndo) {
             this.recordHistory({ type: 'row', keyCode: rotation.key, index: rotation.time });
         }
+
+        this._cubeNetDirty = true;
     }
 
     commitGeneralRotation(rotation) {
@@ -828,6 +995,7 @@ export class RubiksCube {
             if (!rotation.isUndo) {
                 this.recordHistory({ type: 'general', index: rotation.time });
             }
+            this._cubeNetDirty = true;
             return;
         }
 
@@ -845,6 +1013,8 @@ export class RubiksCube {
         if (!rotation.isUndo) {
             this.recordHistory({ type: 'general', index: rotation.time });
         }
+
+        this._cubeNetDirty = true;
     }
 
     recordHistory(action) {
@@ -909,12 +1079,17 @@ export class RubiksCube {
     }
 
     render() {
+        this._applyZoomDelta();
         this.startNextGeneralRotation();
         this.startPendingRowRotations();
 
         this.updateGeneralRotation();
         this.updateRowRotations();
-        this.updateCubeNet();
+        if (this._cubeNetDirty) {
+            this.updateCubeNet();
+            this._cubeNetDirty = false;
+        }
+        this.updateFpsCounter();
 
         this.controls.update();
         this.renderer.render(this.scene, this.camera);
@@ -941,6 +1116,8 @@ export class RubiksCube {
     }
 
     applyMaterialSettings(metalness, roughness) {
+        this._metalness = metalness;
+        this._roughness = roughness;
         for (const materials of this.materialsByObjectId.values()) {
             for (const mat of materials) {
                 mat.metalness = metalness;
@@ -953,6 +1130,95 @@ export class RubiksCube {
     applySpeed(stepsPerTurn) {
         this.stepsPerTurn = stepsPerTurn;
         this.stepAngle = Math.PI / (2 * this.stepsPerTurn);
+    }
+
+    applyKeymap(km) {
+        this.keymap = { ...this.keymap, ...km };
+        this._buildReverseKeymap();
+    }
+
+    _buildReverseKeymap() {
+        this._reverseKeymap = {};
+        for (const [slot, code] of Object.entries(this.keymap)) {
+            this._reverseKeymap[code] = slot;
+        }
+    }
+
+    applyRotateSensitivity(sensitivity) {
+        this.controls.rotateSpeed = sensitivity;
+    }
+
+    applyZoomSettings(mode, step, smooth, min, max) {
+        this._zoomMode = mode;
+        this._zoomStep = step;
+        this._zoomSmooth = smooth;
+        this._zoomMin = min;
+        this._zoomMax = max;
+        this.controls.minDistance = min;
+        this.controls.maxDistance = max;
+        this.controls.enableZoom = false;
+        this._smoothZoomDamping = 0.9 - Math.min(0.08, smooth * 0.02);
+        if (mode === 'stepped') {
+            this._smoothZoomVelocity = 0;
+        }
+        const dist = this.camera.position.length();
+        const clamped = Math.max(min, Math.min(max, dist));
+        if (dist !== clamped) {
+            this.camera.position.setLength(clamped);
+        }
+    }
+
+    _handleWheel(event) {
+        event.preventDefault();
+        const dir = event.deltaY > 0 ? 1 : -1;
+
+        if (this._zoomMode === 'stepped') {
+            this._steppedZoomPending += dir;
+            return;
+        }
+
+        const accel = 0.18 * this._zoomSmooth;
+        this._smoothZoomVelocity += dir * accel;
+        this._smoothZoomVelocity = Math.max(-2.2, Math.min(2.2, this._smoothZoomVelocity));
+    }
+
+    _applyZoomDelta() {
+        const pos = this.camera.position;
+
+        if (this._zoomMode === 'stepped') {
+            if (this._steppedZoomPending === 0) {
+                return;
+            }
+            const currentDist = pos.length();
+            const targetDist = Math.max(
+                this._zoomMin,
+                Math.min(this._zoomMax, currentDist + this._steppedZoomPending * this._zoomStep)
+            );
+            pos.setLength(targetDist);
+            this._steppedZoomPending = 0;
+            return;
+        }
+
+        if (Math.abs(this._smoothZoomVelocity) < 0.0008) {
+            this._smoothZoomVelocity = 0;
+            return;
+        }
+
+        const currentDist = pos.length();
+        const unclampedDist = currentDist + this._smoothZoomVelocity;
+        const targetDist = Math.max(
+            this._zoomMin,
+            Math.min(this._zoomMax, unclampedDist)
+        );
+
+        pos.setLength(targetDist);
+
+        if (targetDist !== unclampedDist) {
+            this._smoothZoomVelocity = 0;
+            return;
+        }
+
+        this._smoothZoomVelocity *= this._smoothZoomDamping;
     }
 
     applyGeometry(enabled, radius) {

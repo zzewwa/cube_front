@@ -10,17 +10,158 @@
     </div>
 
     <aside class="side-panel" data-side-panel>
-        <div class="side-panel__header">
-            <p class="side-panel__title">Навигация</p>
-            <button class="side-panel__close" type="button" aria-label="Закрыть меню" data-menu-close>×</button>
+
+        <div class="side-view side-view--nav">
+            <div class="side-panel__header">
+                <p class="side-panel__title">Навигация</p>
+                <button class="side-panel__close" type="button" aria-label="Закрыть меню" data-menu-close>×</button>
+            </div>
+            <nav class="side-panel__nav">
+                <a href="#">Сборка кубика</a>
+                <a href="#" data-nav-open="controls">Управление</a>
+                <a href="#">Комнаты</a>
+                <a href="#">Обучение</a>
+            </nav>
+            <a class="side-panel__logout" href="{% url 'logout' %}">Выйти</a>
         </div>
-        <nav class="side-panel__nav">
-            <a href="#">Сборка кубика</a>
-            <a href="#">Управление</a>
-            <a href="#">Комнаты</a>
-            <a href="#">Обучение</a>
-        </nav>
-        <a class="side-panel__logout" href="{% url 'logout' %}">Выйти</a>
+
+        <div class="side-view side-view--controls">
+            <div class="side-panel__header">
+                <button class="side-view__back" type="button" data-side-back>← Навигация</button>
+                <button class="side-panel__close" type="button" aria-label="Закрыть меню" data-menu-close>×</button>
+            </div>
+            <div class="side-view__body">
+                <p class="side-view__heading">Управление</p>
+
+                <section class="ctrl-section">
+                    <p class="ctrl-section__title">Весь кубик</p>
+                    <div class="ctrl-group">
+                        <div class="ctrl-row">
+                            <span class="ctrl-desc">Вперёд / назад</span>
+                            <span class="ctrl-keys"><kbd>↑</kbd><kbd>↓</kbd></span>
+                        </div>
+                        <div class="ctrl-row">
+                            <span class="ctrl-desc">Влево / вправо</span>
+                            <span class="ctrl-keys"><kbd>←</kbd><kbd>→</kbd></span>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="ctrl-section">
+                    <p class="ctrl-section__title">Слои</p>
+                    <p class="ctrl-note ctrl-note--top">⇧ + клавиша — обратное направление</p>
+                    <div class="ctrl-group">
+                        <div class="ctrl-row">
+                            <span class="ctrl-desc">Ось X (лево → право)</span>
+                            <span class="ctrl-keys">
+                                <button type="button" class="ctrl-keybind" data-keybind="KeyQ">Q</button>
+                                <button type="button" class="ctrl-keybind" data-keybind="KeyW">W</button>
+                                <button type="button" class="ctrl-keybind" data-keybind="KeyE">E</button>
+                            </span>
+                        </div>
+                        <div class="ctrl-row">
+                            <span class="ctrl-desc">Ось Y (низ → верх)</span>
+                            <span class="ctrl-keys">
+                                <button type="button" class="ctrl-keybind" data-keybind="KeyA">A</button>
+                                <button type="button" class="ctrl-keybind" data-keybind="KeyS">S</button>
+                                <button type="button" class="ctrl-keybind" data-keybind="KeyD">D</button>
+                            </span>
+                        </div>
+                        <div class="ctrl-row">
+                            <span class="ctrl-desc">Ось Z (перед → зад)</span>
+                            <span class="ctrl-keys">
+                                <button type="button" class="ctrl-keybind" data-keybind="KeyV">V</button>
+                                <button type="button" class="ctrl-keybind" data-keybind="KeyF">F</button>
+                                <button type="button" class="ctrl-keybind" data-keybind="KeyR">R</button>
+                            </span>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="ctrl-section">
+                    <p class="ctrl-section__title">Прочее</p>
+                    <div class="ctrl-group">
+                        <div class="ctrl-row">
+                            <span class="ctrl-desc">Отменить ход</span>
+                            <span class="ctrl-keys"><kbd>Ctrl</kbd><span class="ctrl-plus">+</span><kbd>Z</kbd></span>
+                        </div>
+                        <div class="ctrl-row">
+                            <span class="ctrl-desc">Настройки</span>
+                            <span class="ctrl-keys"><kbd>X</kbd></span>
+                        </div>
+                        <div class="ctrl-row">
+                            <span class="ctrl-desc">Сброс кубика</span>
+                            <span class="ctrl-caption">клик по статусу ↙</span>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="ctrl-section">
+                    <p class="ctrl-section__title">Мышь</p>
+                    <div class="ctrl-group">
+                        <div class="ctrl-row">
+                            <span class="ctrl-desc">Вращение камеры</span>
+                            <span class="ctrl-caption">перетаскивание</span>
+                        </div>
+                        <div class="ctrl-row ctrl-row--stacked">
+                            <label class="ctrl-input-label" for="cfg-rotate-speed">Чувствительность вращения</label>
+                            <label class="cfg-label" for="cfg-rotate-speed">
+                                <span>Скорость</span>
+                                <span class="cfg-value" id="cfg-rotate-speed-val">1.00</span>
+                            </label>
+                            <input class="cfg-range" id="cfg-rotate-speed" type="range" min="0.20" max="3.00" step="0.05" value="1.00">
+                        </div>
+                        <div class="ctrl-row">
+                            <span class="ctrl-desc">Зум</span>
+                            <span class="ctrl-caption">колесо прокрутки</span>
+                        </div>
+                        <div class="ctrl-row ctrl-row--stacked">
+                            <span class="ctrl-input-label">Режим зума</span>
+                            <div class="ctrl-radio-group">
+                                <label class="ctrl-radio">
+                                    <input type="radio" name="cfg-zoom-mode" id="cfg-zoom-stepped" value="stepped" checked>
+                                    <span>Пошаговый</span>
+                                </label>
+                                <label class="ctrl-radio">
+                                    <input type="radio" name="cfg-zoom-mode" id="cfg-zoom-smooth" value="smooth">
+                                    <span>Плавный</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="ctrl-row ctrl-row--stacked" id="ctrl-zoom-step-row">
+                            <label class="cfg-label" for="cfg-zoom-step">
+                                <span>Размер шага</span>
+                                <span class="cfg-value" id="cfg-zoom-step-val">1.50</span>
+                            </label>
+                            <input class="cfg-range" id="cfg-zoom-step" type="range" min="0.20" max="4.00" step="0.10" value="1.50">
+                        </div>
+                        <div class="ctrl-row ctrl-row--stacked" id="ctrl-zoom-smooth-row">
+                            <label class="cfg-label" for="cfg-zoom-smooth-speed">
+                                <span>Чувствительность</span>
+                                <span class="cfg-value" id="cfg-zoom-smooth-speed-val">1.00</span>
+                            </label>
+                            <input class="cfg-range" id="cfg-zoom-smooth-speed" type="range" min="0.20" max="3.00" step="0.05" value="1.00">
+                        </div>
+                        <div class="ctrl-row ctrl-row--stacked">
+                            <label class="cfg-label" for="cfg-zoom-min">
+                                <span>Мин. дистанция</span>
+                                <span class="cfg-value" id="cfg-zoom-min-val">5.0</span>
+                            </label>
+                            <input class="cfg-range" id="cfg-zoom-min" type="range" min="3" max="15" step="0.5" value="5">
+                        </div>
+                        <div class="ctrl-row ctrl-row--stacked">
+                            <label class="cfg-label" for="cfg-zoom-max">
+                                <span>Макс. дистанция</span>
+                                <span class="cfg-value" id="cfg-zoom-max-val">30.0</span>
+                            </label>
+                            <input class="cfg-range" id="cfg-zoom-max" type="range" min="16" max="80" step="0.5" value="30">
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </div>
+
     </aside>
 
     <button class="menu-toggle" type="button" aria-label="Открыть меню" aria-expanded="false" data-menu-toggle>
@@ -141,6 +282,13 @@
                             <span class="cfg-toggle__track"></span>
                         </label>
                     </div>
+                    <div class="cfg-row cfg-row--inline">
+                        <span class="cfg-label">Режим разработчика (FPS)</span>
+                        <label class="cfg-toggle">
+                            <input type="checkbox" id="cfg-debug-fps">
+                            <span class="cfg-toggle__track"></span>
+                        </label>
+                    </div>
                     <div class="cfg-row">
                         <label class="cfg-label" for="cfg-speed">Скорость поворота <span class="cfg-value" id="cfg-speed-val">нормально</span></label>
                         <input type="range" class="cfg-range" id="cfg-speed" min="5" max="60" step="1" value="30">
@@ -161,7 +309,7 @@
     </header>
 
     <footer class="dashboard-footer">
-        <p>Статус: Собран</p>
+        <p id="cube-status" class="cube-status is-solved" title="Нажмите, чтобы сбросить кубик">Собран</p>
     </footer>
 
     <div class="cube-net-widget" id="cube-net-widget" aria-hidden="false">
