@@ -201,20 +201,40 @@ export class GoldenSkin extends BaseSkin {
 
             shader.fragmentShader = shader.fragmentShader.replace(
                 '#include <common>',
-                '#include <common>\nuniform float uGoldTime;\nuniform float uGoldShimmerAmount;\nuniform float uGoldShimmerSpeed;\nvarying vec3 vGoldWorldPos;'
+                [
+                    '#include <common>',
+                    'uniform float uGoldTime;',
+                    'uniform float uGoldShimmerAmount;',
+                    'uniform float uGoldShimmerSpeed;',
+                    'varying vec3 vGoldWorldPos;',
+                    'float goldHash(vec2 p) {',
+                    '    vec2 q = fract(p * vec2(0.1031, 0.1030));',
+                    '    q += dot(q, q.yx + 33.33);',
+                    '    return fract((q.x + q.y) * q.x);',
+                    '}',
+                    'float goldSparkleCell(vec2 cell, float t) {',
+                    '    vec2 id = floor(cell);',
+                    '    vec2 uv = fract(cell) - 0.5;',
+                    '    float h = goldHash(id);',
+                    '    float wave = sin(t + h * 6.2832);',
+                    '    float peak = pow(max(wave, 0.0), 5.0);',
+                    '    float dist = length(uv);',
+                    '    return peak * smoothstep(0.25, 0.0, dist);',
+                    '}',
+                ].join('\n')
             );
 
             shader.fragmentShader = shader.fragmentShader.replace(
                 '#include <dithering_fragment>',
-                'float localA = 0.5 + 0.5 * sin(vGoldWorldPos.x * 18.0 + uGoldTime * 2.0 * uGoldShimmerSpeed);\n'
-                + 'float localB = 0.5 + 0.5 * sin(vGoldWorldPos.y * 16.0 - uGoldTime * 1.7 * uGoldShimmerSpeed);\n'
-                + 'float localC = 0.5 + 0.5 * sin((vGoldWorldPos.x + vGoldWorldPos.y) * 10.0 + uGoldTime * 1.2 * uGoldShimmerSpeed);\n'
-                + 'float localShimmer = max(localA * 0.50, max(localB * 0.45, localC * 0.35));\n'
-                + 'float streak = smoothstep(0.86, 1.0, localShimmer);\n'
-                + 'vec3 shimmerColor = vec3(1.0, 0.89, 0.50);\n'
-                + 'float shimmerStrength = uGoldShimmerAmount * (0.02 + streak * 0.20);\n'
-                + 'gl_FragColor.rgb += shimmerColor * shimmerStrength;\n'
-                + '#include <dithering_fragment>'
+                [
+                    'float _gt = uGoldTime * uGoldShimmerSpeed * 1.5;',
+                    'vec3 _wp = vGoldWorldPos * 10.0;',
+                    'float _spk = max(goldSparkleCell(_wp.xy, _gt),',
+                    '            max(goldSparkleCell(_wp.yz, _gt + 1.1),',
+                    '                goldSparkleCell(_wp.xz, _gt + 2.2)));',
+                    'gl_FragColor.rgb += vec3(1.0, 0.95, 0.55) * _spk * uGoldShimmerAmount * 2.0;',
+                    '#include <dithering_fragment>',
+                ].join('\n')
             );
         };
 
@@ -317,29 +337,12 @@ export class GoldenSkin extends BaseSkin {
         this._time = performance.now() * 0.001;
         for (const mats of this.cube.materialsByObjectId.values()) {
             for (const mat of mats) {
+                // Push time and settings to GLSL shader uniforms every frame.
                 const shader = mat.userData._goldShader;
                 if (shader?.uniforms?.uGoldTime) {
                     shader.uniforms.uGoldTime.value = this._time;
                     shader.uniforms.uGoldShimmerAmount.value = this.shimmerAmount;
                     shader.uniforms.uGoldShimmerSpeed.value = this.shimmerSpeed;
-                }
-
-                // Robust fallback shimmer in runtime: always visible and face-local.
-                const base = mat.name === 'h' ? 0.02 : 0.03;
-                if (this.shimmerAmount <= 0.0001 || this.shimmerSpeed <= 0.0001) {
-                    mat.emissive.copy(GOLD_EMISSIVE);
-                    mat.emissiveIntensity = base;
-                } else {
-                    const phase = this._getMaterialPhase(mat);
-                    const t = this._time * this.shimmerSpeed;
-                    const waveA = 0.5 + 0.5 * Math.sin(t * 2.1 + phase);
-                    const waveB = 0.5 + 0.5 * Math.sin(t * 3.4 + phase * 1.7);
-                    const local = waveA * 0.62 + waveB * 0.38;
-                    const sparkle = Math.max(0, (local - 0.70) / 0.30); // soft threshold 0..1
-
-                    const emissiveColor = GOLD_EMISSIVE.clone().lerp(new THREE.Color('#e3b85a'), sparkle * 0.55);
-                    mat.emissive.copy(emissiveColor);
-                    mat.emissiveIntensity = base + this.shimmerAmount * (0.035 + sparkle * 0.22);
                 }
             }
         }
