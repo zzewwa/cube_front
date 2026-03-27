@@ -523,12 +523,6 @@ const initApp = () => {
         getCube()?.applyGoldenSettings(goldenShimmer, goldenShimmerSpeed, goldenSparkleScale, goldenShaderEnabled, goldenGemGlowMode, goldenGemGlowIntensity);
     }, (value) => value.toFixed(2));
 
-    onCheck('cfg-golden-shader-enabled', (value) => {
-        goldenShaderEnabled = value;
-        getCube()?.applyGoldenSettings(goldenShimmer, goldenShimmerSpeed, goldenSparkleScale, goldenShaderEnabled, goldenGemGlowMode, goldenGemGlowIntensity);
-        syncLanternRows();
-    });
-
     onRange('cfg-golden-shimmer-speed', 'cfg-golden-shimmer-speed-val', (value) => {
         goldenShimmerSpeed = value;
         getCube()?.applyGoldenSettings(goldenShimmer, goldenShimmerSpeed, goldenSparkleScale, goldenShaderEnabled, goldenGemGlowMode, goldenGemGlowIntensity);
@@ -610,6 +604,13 @@ const initApp = () => {
             roughnessRow.style.display = showMaterialSliders ? '' : 'none';
         }
     };
+
+    const goldenShaderToggle = document.getElementById('cfg-golden-shader-enabled');
+    goldenShaderToggle?.addEventListener('change', () => {
+        goldenShaderEnabled = goldenShaderToggle.checked;
+        getCube()?.applyGoldenSettings(goldenShimmer, goldenShimmerSpeed, goldenSparkleScale, goldenShaderEnabled, goldenGemGlowMode, goldenGemGlowIntensity);
+        syncLanternRows();
+    });
 
     // Defer the heavy skin-switch work by one frame so the dropdown closes first
     skinSelect?.addEventListener('change', () => {
