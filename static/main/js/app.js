@@ -789,7 +789,6 @@ const initApp = () => {
     let gamePhase        = 'idle';
     let gameTimerHandle  = null;
     let gameCountSecs    = 5;
-    let gameStudySecs    = 10;
     let gameSolveStartMs = 0;
 
     const gmClear = () => {
@@ -862,19 +861,25 @@ const initApp = () => {
 
     const gmStartStudy = () => {
         gamePhase = 'study';
+        // Scramble right here — overlay is still opaque so the solve state is hidden
+        getCube()?.resetCube();
+        getCube()?.scrambleInstant(50);
+        // Dismiss overlay (fade out number + background together)
+        if (goNum) goNum.classList.remove('is-shown');
         gmOverlay(false);
         gmPhase('изучение');
-        gameStudySecs = 10;
-        gmDisplay(`00:${String(gameStudySecs).padStart(2, '0')}.00`);
+
+        const studyEndMs = performance.now() + 10000;
+        gmDisplay(gmFmt(10000));
 
         gameTimerHandle = setInterval(() => {
-            gameStudySecs--;
-            gmDisplay(`00:${String(gameStudySecs).padStart(2, '0')}.00`);
-            if (gameStudySecs <= 0) {
+            const remaining = Math.max(0, studyEndMs - performance.now());
+            gmDisplay(gmFmt(remaining));
+            if (remaining <= 0) {
                 gmClear();
                 gmStartSolving();
             }
-        }, 1000);
+        }, 50);
     };
 
     const gmStartCountdown = () => {
@@ -883,10 +888,6 @@ const initApp = () => {
         gmIconActive(false);
         gmPhase('');
         gmDisplay('00:00.00');
-
-        // Reset cube + scramble instantly (under the overlay, not visible yet)
-        getCube()?.resetCube();
-        getCube()?.scrambleInstant(50);
 
         if (goHint) goHint.textContent = 'Приготовьтесь...';
         gmOverlay(true);
