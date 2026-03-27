@@ -69,6 +69,7 @@ export class RubiksCube {
         this.generalQueue = [];
         this.activeGeneralRotation = null;
         this.undoHistory = [];
+        this.onSolvedChange = null;
         this.generalRotations = [
             {
                 time: 0,
@@ -650,6 +651,7 @@ export class RubiksCube {
         this.statusElement.textContent = isSolved ? 'Собран' : 'Не собран';
         this.statusElement.classList.toggle('is-solved', isSolved);
         this.statusElement.classList.toggle('is-unsolved', !isSolved);
+        this.onSolvedChange?.(isSolved);
     }
 
     initFpsOverlay() {
@@ -1319,5 +1321,53 @@ export class RubiksCube {
 
     onWindowResize() {
         this.renderEngine?.resize();
+    }
+
+    /**
+     * Instantly scramble the cube with random row rotations (no animation).
+     * Safe to call right after resetCube().
+     */
+    scrambleInstant(moveCount = 50) {
+        this.generalQueue = [];
+        this.pendingRowQueue = [];
+        this.undoHistory = [];
+        const plans = this.rowRotations;
+        for (let i = 0; i < moveCount; i++) {
+            const plan = plans[Math.floor(Math.random() * plans.length)];
+            this._applyRowRotationInstant(plan);
+        }
+        this._cubeNetDirty = true;
+    }
+
+    _applyRowRotationInstant(plan) {
+        const scene = this.renderEngine.scene;
+        // Pre-fetch all 9 objects by their current names BEFORE any renaming
+        // to avoid look-up collisions from cyclic permutations.
+        const objects = [];
+        for (let i = 0; i < 9; i++) {
+            objects.push(scene.getObjectByName(String(plan.change[9 + i])));
+        }
+        for (let i = 0; i < 9; i++) {
+            const obj = objects[i];
+            if (!obj) continue;
+            const currentMats = this.materialsByObjectId.get(obj.id) || obj.material;
+            const remapped = [
+                currentMats[plan.materials[0]],
+                currentMats[plan.materials[1]],
+                currentMats[plan.materials[2]],
+                currentMats[plan.materials[3]],
+                currentMats[plan.materials[4]],
+                currentMats[plan.materials[5]]
+            ];
+            obj.name = String(plan.change[i]);
+            const pos = this.position_of_cubes.get(obj.name);
+            if (pos) obj.position.set(pos[0], pos[1], pos[2]);
+            obj.material = remapped;
+            this.materialsByObjectId.set(obj.id, remapped);
+            this.faceOrientationEngine.onCubieRemap(obj, plan.materials, plan.axis, plan.sign);
+            if (this.activeSkin?.onCubieRemap) {
+                this.activeSkin.onCubieRemap(obj, plan.materials, plan.axis, plan.sign);
+            }
+        }
     }
 }

@@ -375,14 +375,24 @@
             {{ request.user.username|first|upper }}
         </button>
         <div class="dashboard-timer">
-            <div class="timer-icon"></div>
-            <span class="dashboard-timer__value">00:00:00</span>
+            <button class="timer-icon-btn" id="timer-icon-btn" type="button" aria-label="Начать игру" title="Начать игру">
+                <div class="timer-icon"></div>
+            </button>
+            <span class="dashboard-timer__phase" id="game-phase-label"></span>
+            <span class="dashboard-timer__value" id="game-timer-value">00:00.00</span>
         </div>
     </header>
 
     <footer class="dashboard-footer">
         <p id="cube-status" class="cube-status is-solved" title="Нажмите, чтобы сбросить кубик">Собран</p>
     </footer>
+
+    <div class="game-overlay" id="game-overlay" aria-hidden="true">
+        <div class="game-overlay__body">
+            <div class="game-overlay__num" id="game-overlay-num">5</div>
+            <p class="game-overlay__hint" id="game-overlay-hint">Приготовьтесь...</p>
+        </div>
+    </div>
 
     <div class="cube-net-widget" id="cube-net-widget" aria-hidden="false">
         <div class="cube-net-grid">

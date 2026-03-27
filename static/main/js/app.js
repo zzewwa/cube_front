@@ -776,6 +776,141 @@ const initApp = () => {
     refreshKeybindButtons();
     syncZoomRows();
     syncLanternRows();
+
+    // ── Game mode ────────────────────────────────────────────────────────────────
+    const timerIconBtn    = document.getElementById('timer-icon-btn');
+    const gameTimerValEl  = document.getElementById('game-timer-value');
+    const goOverlay       = document.getElementById('game-overlay');
+    const goNum           = document.getElementById('game-overlay-num');
+    const goHint          = document.getElementById('game-overlay-hint');
+    const goPhaseLbl      = document.getElementById('game-phase-label');
+
+    // idle → countdown → study → solving → done
+    let gamePhase        = 'idle';
+    let gameTimerHandle  = null;
+    let gameCountSecs    = 5;
+    let gameStudySecs    = 10;
+    let gameSolveStartMs = 0;
+
+    const gmClear = () => {
+        if (gameTimerHandle !== null) { clearInterval(gameTimerHandle); gameTimerHandle = null; }
+    };
+
+    const gmDisplay = (text) => { if (gameTimerValEl) gameTimerValEl.textContent = text; };
+
+    const gmPhase = (text) => { if (goPhaseLbl) goPhaseLbl.textContent = text; };
+
+    const gmFmt = (ms) => {
+        const s  = Math.floor(ms / 1000);
+        const m  = Math.floor(s / 60);
+        const ss = s % 60;
+        const cs = Math.floor((ms % 1000) / 10);
+        return `${String(m).padStart(2, '0')}:${String(ss).padStart(2, '0')}.${String(cs).padStart(2, '0')}`;
+    };
+
+    const gmOverlay = (visible) => {
+        if (!goOverlay) return;
+        goOverlay.classList.toggle('is-visible', visible);
+        goOverlay.setAttribute('aria-hidden', String(!visible));
+    };
+
+    const gmPulse = (n) => {
+        if (!goNum) return;
+        goNum.classList.remove('is-shown');
+        void goNum.offsetWidth; // force reflow for re-trigger
+        goNum.textContent = String(n);
+        goNum.classList.add('is-shown');
+    };
+
+    const gmIconActive = (active) => {
+        if (!timerIconBtn) return;
+        timerIconBtn.disabled = !active;
+        timerIconBtn.setAttribute('aria-label', active ? 'Начать игру' : 'Игра идёт');
+        timerIconBtn.title = active ? 'Начать игру' : 'Игра идёт';
+    };
+
+    const gmFinish = (elapsedMs) => {
+        gamePhase = 'done';
+        gmClear();
+        gmDisplay(gmFmt(elapsedMs));
+        gmPhase('собран!');
+        gmIconActive(true);
+        const cube = getCube();
+        if (cube) cube.onSolvedChange = null;
+    };
+
+    const gmStartSolving = () => {
+        gamePhase = 'solving';
+        gmPhase('сборка');
+        gameSolveStartMs = performance.now();
+
+        const cube = getCube();
+        if (cube) {
+            // Reset solved-change flag so a pre-scrambled solved state doesn't fire
+            cube._lastSolvedState = null;
+            cube.onSolvedChange = (isSolved) => {
+                if (isSolved && gamePhase === 'solving') {
+                    gmFinish(performance.now() - gameSolveStartMs);
+                }
+            };
+        }
+
+        gameTimerHandle = setInterval(() => {
+            gmDisplay(gmFmt(performance.now() - gameSolveStartMs));
+        }, 50);
+    };
+
+    const gmStartStudy = () => {
+        gamePhase = 'study';
+        gmOverlay(false);
+        gmPhase('изучение');
+        gameStudySecs = 10;
+        gmDisplay(`00:${String(gameStudySecs).padStart(2, '0')}.00`);
+
+        gameTimerHandle = setInterval(() => {
+            gameStudySecs--;
+            gmDisplay(`00:${String(gameStudySecs).padStart(2, '0')}.00`);
+            if (gameStudySecs <= 0) {
+                gmClear();
+                gmStartSolving();
+            }
+        }, 1000);
+    };
+
+    const gmStartCountdown = () => {
+        gamePhase = 'countdown';
+        gmClear();
+        gmIconActive(false);
+        gmPhase('');
+        gmDisplay('00:00.00');
+
+        // Reset cube + scramble instantly (under the overlay, not visible yet)
+        getCube()?.resetCube();
+        getCube()?.scrambleInstant(50);
+
+        if (goHint) goHint.textContent = 'Приготовьтесь...';
+        gmOverlay(true);
+        gameCountSecs = 5;
+        gmPulse(gameCountSecs);
+
+        gameTimerHandle = setInterval(() => {
+            gameCountSecs--;
+            if (gameCountSecs > 0) {
+                gmPulse(gameCountSecs);
+            } else {
+                gmClear();
+                gmStartStudy();
+            }
+        }, 1000);
+    };
+
+    timerIconBtn?.addEventListener('click', () => {
+        if (gamePhase === 'idle' || gamePhase === 'done') {
+            gmStartCountdown();
+        }
+    });
+    // ── End game mode ────────────────────────────────────────────────────────────
+
     applyControlSettings();
 };
 
