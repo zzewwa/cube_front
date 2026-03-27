@@ -828,12 +828,37 @@ const initApp = () => {
         timerIconBtn.title = active ? 'Начать игру' : 'Игра идёт';
     };
 
+    const gmInput = (enabled) => {
+        getCube()?.setInputEnabled(enabled);
+    };
+
+    const gmResetUi = () => {
+        gmClear();
+        gamePhase = 'idle';
+        gmDisplay('00:00:00');
+        gmPhase('');
+        gmOverlay(false);
+        if (goNum) goNum.classList.remove('is-shown');
+        if (goHint) goHint.textContent = 'Приготовьтесь...';
+        gmIconActive(true);
+        gmInput(true);
+        const cube = getCube();
+        if (cube) {
+            cube.onSolvedChange = null;
+        }
+    };
+
+    const gmAbort = () => {
+        gmResetUi();
+    };
+
     const gmFinish = (elapsedMs) => {
         gamePhase = 'done';
         gmClear();
         gmDisplay(gmFmt(elapsedMs));
         gmPhase('собран!');
         gmIconActive(true);
+        gmInput(true);
         const cube = getCube();
         if (cube) cube.onSolvedChange = null;
     };
@@ -841,6 +866,7 @@ const initApp = () => {
     const gmStartSolving = () => {
         gamePhase = 'solving';
         gmPhase('сборка');
+        gmInput(true);
         gameSolveStartMs = performance.now();
 
         const cube = getCube();
@@ -861,6 +887,7 @@ const initApp = () => {
 
     const gmStartStudy = () => {
         gamePhase = 'study';
+        gmInput(false);
         // Scramble right here — overlay is still opaque so the solve state is hidden
         getCube()?.resetCube();
         getCube()?.scrambleInstant(50);
@@ -886,6 +913,7 @@ const initApp = () => {
         gamePhase = 'countdown';
         gmClear();
         gmIconActive(false);
+        gmInput(false);
         gmPhase('');
         gmDisplay('00:00.00');
 
@@ -910,6 +938,13 @@ const initApp = () => {
             gmStartCountdown();
         }
     });
+
+    const cube = getCube();
+    if (cube) {
+        cube.onManualReset = () => {
+            gmAbort();
+        };
+    }
     // ── End game mode ────────────────────────────────────────────────────────────
 
     applyControlSettings();

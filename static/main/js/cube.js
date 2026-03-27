@@ -49,6 +49,8 @@ export class RubiksCube {
         this.cubeNetWidget = null;
         this.statusElement = null;
         this._lastSolvedState = null;
+        this.inputEnabled = true;
+        this.onManualReset = null;
         this.fpsElement = null;
         this._fpsFrames = 0;
         this._fpsWindowStart = performance.now();
@@ -312,7 +314,7 @@ export class RubiksCube {
         this.initCubeNetWidget();
         this.statusElement = document.getElementById('cube-status');
         if (this.statusElement) {
-            this.statusElement.addEventListener('click', () => this.resetCube());
+            this.statusElement.addEventListener('click', () => this.resetCube({ manual: true }));
         }
         this.initFpsOverlay();
 
@@ -588,7 +590,8 @@ export class RubiksCube {
         });
     }
 
-    resetCube() {
+    resetCube(options = {}) {
+        const { manual = false } = options;
         // Cancel any active general rotation
         if (this.activeGeneralRotation) {
             for (const cube of [...this.activeGeneralRotation.group.children]) {
@@ -641,6 +644,10 @@ export class RubiksCube {
 
         this._lastSolvedState = null;
         this._cubeNetDirty = true;
+
+        if (manual) {
+            this.onManualReset?.();
+        }
     }
 
     updateSolvedStatus(isSolved) {
@@ -763,6 +770,10 @@ export class RubiksCube {
     }
 
     handleKeyDown(event) {
+        if (!this.inputEnabled) {
+            return;
+        }
+
         if (event.repeat) {
             return;
         }
@@ -1192,6 +1203,10 @@ export class RubiksCube {
 
     applySpeed(stepsPerTurn) {
         this.config.rotation.stepsPerTurn = Math.max(1, Math.round(Number(stepsPerTurn) || this.config.rotation.stepsPerTurn));
+    }
+
+    setInputEnabled(enabled) {
+        this.inputEnabled = Boolean(enabled);
     }
 
     applyKeymap(km) {
