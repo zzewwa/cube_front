@@ -24,9 +24,28 @@ export class GoldenSkin extends BaseSkin {
         this.shimmerAmount = cube.config.runtime?.golden?.shimmer ?? 0.18;
         this.shimmerSpeed = cube.config.runtime?.golden?.shimmerSpeed ?? 1.0;
         this.sparkleScale = cube.config.runtime?.golden?.sparkleScale ?? 5.0;
+        this.shaderEnabled = cube.config.runtime?.golden?.shaderEnabled ?? true;
         this.gemGlowMode = cube.config.runtime?.golden?.gemGlowMode ?? 'all';
         this.gemGlowIntensity = cube.config.runtime?.golden?.gemGlowIntensity ?? 0.22;
         this._time = 0;
+    }
+
+    _clearGoldShimmer(material) {
+        const state = this._originalState.get(material);
+        material.onBeforeCompile = state?.onBeforeCompile ?? (() => {});
+        material.customProgramCacheKey = state?.customProgramCacheKey;
+        material.userData.goldenShimmerInstalled = false;
+        material.userData._goldShader = undefined;
+        material.needsUpdate = true;
+    }
+
+    _setGoldShimmer(material, enabled) {
+        if (enabled) {
+            this._installGoldShimmer(material);
+            material.needsUpdate = true;
+            return;
+        }
+        this._clearGoldShimmer(material);
     }
 
     _createFaceTexture(letter) {
@@ -174,7 +193,7 @@ export class GoldenSkin extends BaseSkin {
             gem.visible = false;
             gem.userData.faceIndex = faceIndex;
             gem.userData.gemLetter = 'h';
-            this._installGoldShimmer(gem.material);
+            this._setGoldShimmer(gem.material, this.shaderEnabled);
             group.add(gem);
         }
 
@@ -346,7 +365,7 @@ export class GoldenSkin extends BaseSkin {
                 mat.depthWrite = true;
                 mat.metalness = mat.name === 'h' ? 0.86 : 0.92;
                 mat.roughness = mat.name === 'h' ? 0.28 : 0.20;
-                this._installGoldShimmer(mat);
+                this._setGoldShimmer(mat, this.shaderEnabled);
                 mat.needsUpdate = true;
             }
         }
@@ -410,6 +429,12 @@ export class GoldenSkin extends BaseSkin {
 
     update() {
         this._time = performance.now() * 0.001;
+        if (!this.shaderEnabled) {
+            for (const mesh of this.cube.cubeMeshList) {
+                this._syncGems(mesh, false);
+            }
+            return;
+        }
         const updateShader = (shader) => {
             if (shader?.uniforms?.uGoldTime) {
                 shader.uniforms.uGoldTime.value = this._time;
@@ -444,8 +469,9 @@ export class GoldenSkin extends BaseSkin {
         this._applyGoldenMaterials();
     }
 
-    setParams({ goldenShimmer, goldenShimmerSpeed, goldenSparkleScale, goldenGemGlowMode, goldenGemGlowIntensity }) {
+    setParams({ goldenShimmer, goldenShimmerSpeed, goldenSparkleScale, goldenShaderEnabled, goldenGemGlowMode, goldenGemGlowIntensity }) {
         let shouldRefreshGems = false;
+        let shouldRewireShader = false;
         if (goldenShimmer !== undefined) {
             this.shimmerAmount = Math.min(1.2, Math.max(0.0, Number(goldenShimmer)));
         }
@@ -454,6 +480,10 @@ export class GoldenSkin extends BaseSkin {
         }
         if (goldenSparkleScale !== undefined) {
             this.sparkleScale = Math.min(12.0, Math.max(2.0, Number(goldenSparkleScale)));
+        }
+        if (goldenShaderEnabled !== undefined) {
+            this.shaderEnabled = Boolean(goldenShaderEnabled);
+            shouldRewireShader = true;
         }
         if (goldenGemGlowMode !== undefined) {
             this.gemGlowMode = ['off', 'center', 'all'].includes(goldenGemGlowMode) ? goldenGemGlowMode : 'all';
@@ -464,11 +494,33 @@ export class GoldenSkin extends BaseSkin {
             shouldRefreshGems = true;
         }
 
-        // Immediate visual feedback even before next frame/shader uniform tick.
+        if (shouldRewireShader) {
+            for (const mats of this.cube.materialsByObjectId.values()) {
+                for (const mat of mats) {
+                    this._setGoldShimmer(mat, this.shaderEnabled);
+                }
+            }
+            for (const group of this._gemsByMeshId.values()) {
+                for (const gem of group.children) {
+                    this._setGoldShimmer(gem.material, this.shaderEnabled);
+                }
+            }
+        }
+
+        // Uniform-only updates do not require material recompilation.
         for (const mats of this.cube.materialsByObjectId.values()) {
             for (const mat of mats) {
-                mat.needsUpdate = true;
                 const shader = mat.userData._goldShader;
+                if (shader?.uniforms?.uGoldShimmerAmount) {
+                    shader.uniforms.uGoldShimmerAmount.value = this.shimmerAmount;
+                    shader.uniforms.uGoldShimmerSpeed.value = this.shimmerSpeed;
+                    shader.uniforms.uGoldSparkleScale.value = this.sparkleScale;
+                }
+            }
+        }
+        for (const group of this._gemsByMeshId.values()) {
+            for (const gem of group.children) {
+                const shader = gem.material?.userData?._goldShader;
                 if (shader?.uniforms?.uGoldShimmerAmount) {
                     shader.uniforms.uGoldShimmerAmount.value = this.shimmerAmount;
                     shader.uniforms.uGoldShimmerSpeed.value = this.shimmerSpeed;
