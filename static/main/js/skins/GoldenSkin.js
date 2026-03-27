@@ -32,8 +32,14 @@ export class GoldenSkin extends BaseSkin {
 
     _clearGoldShimmer(material) {
         const state = this._originalState.get(material);
-        material.onBeforeCompile = state?.onBeforeCompile ?? (() => {});
-        material.customProgramCacheKey = state?.customProgramCacheKey;
+        if (state) {
+            material.onBeforeCompile = state.onBeforeCompile;
+            material.customProgramCacheKey = state.customProgramCacheKey;
+        } else {
+            // Gem materials are not in _originalState; revert to prototype methods.
+            material.onBeforeCompile = THREE.Material.prototype.onBeforeCompile;
+            material.customProgramCacheKey = THREE.Material.prototype.customProgramCacheKey;
+        }
         material.userData.goldenShimmerInstalled = false;
         material.userData._goldShader = undefined;
         material.needsUpdate = true;
