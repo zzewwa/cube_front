@@ -30,7 +30,27 @@ function materialCodeToName(materialCode) {
 }
 
 function getSortedCubes(cubeMeshList) {
-    return [...cubeMeshList].sort((leftCube, rightCube) => Number(leftCube.name) - Number(rightCube.name));
+    const getCubeIndex = (cube) => {
+        const rawName = String(cube?.name ?? '');
+        const match = rawName.match(/(\d+)$/);
+        return match ? Number(match[1]) : Number.NaN;
+    };
+
+    return [...cubeMeshList].sort((leftCube, rightCube) => {
+        const leftIndex = getCubeIndex(leftCube);
+        const rightIndex = getCubeIndex(rightCube);
+
+        if (Number.isFinite(leftIndex) && Number.isFinite(rightIndex)) {
+            return leftIndex - rightIndex;
+        }
+        if (Number.isFinite(leftIndex)) {
+            return -1;
+        }
+        if (Number.isFinite(rightIndex)) {
+            return 1;
+        }
+        return 0;
+    });
 }
 
 export class Cookies {
