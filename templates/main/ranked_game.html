@@ -1,0 +1,88 @@
+{% extends 'main/base.html' %}
+{% load static %}
+
+{% block title %}Рейтинговая игра | My Cube{% endblock %}
+{% block body_class %}rooms-body{% endblock %}
+
+{% block content %}
+<div class="rooms-page ranked-page" data-ranked-root>
+    <header class="rooms-page__header">
+        <p class="profile-modal__eyebrow">Рейтинговая игра 1v1</p>
+        <a href="{% url 'dashboard' %}" class="profile-tabs__button">Вернуться к кубику</a>
+    </header>
+
+    <section class="rooms-grid rooms-grid--hub">
+        <article class="rooms-card ranked-card ranked-card--queue">
+            <div class="rooms-card__header">
+                <div>
+                    <h2>Поиск матча</h2>
+                    <p class="rooms-card__subtitle">Автоматический подбор соперника, без зрителей.</p>
+                </div>
+            </div>
+
+            <div class="ranked-card__stats">
+                <article class="room-side-panel__stat">
+                    <span>Ваше место</span>
+                    <strong data-ranked-my-position>{{ my_rating_position }}</strong>
+                </article>
+                <article class="room-side-panel__stat">
+                    <span>Ваш рейтинг</span>
+                    <strong data-ranked-my-points>{{ my_rating_points }}</strong>
+                </article>
+                <article class="room-side-panel__stat">
+                    <span>В очереди</span>
+                    <strong data-ranked-waiting-count>0</strong>
+                </article>
+                <article class="room-side-panel__stat">
+                    <span>Время ожидания</span>
+                    <strong data-ranked-wait-time>00:00</strong>
+                </article>
+            </div>
+
+            <div class="profile-form__actions ranked-card__actions">
+                <button type="button" class="primary-button" data-ranked-find-btn>Найти игру</button>
+            </div>
+
+            <p class="room-invite-panel__status" data-ranked-status></p>
+        </article>
+
+        <article class="rooms-card ranked-card">
+            <div class="rooms-card__header">
+                <div>
+                    <h2>Топ игроков</h2>
+                    <p class="rooms-card__subtitle">Лучшие участники текущего сезона.</p>
+                </div>
+            </div>
+
+            <div class="record-history__list ranked-leaderboard">
+                {% for row in leaderboard %}
+                <article class="rooms-invitation-item ranked-leaderboard__item{% if row.position == 1 %} ranked-leaderboard__item--gold{% elif row.position == 2 %} ranked-leaderboard__item--silver{% elif row.position == 3 %} ranked-leaderboard__item--bronze{% endif %}">
+                    <div class="ranked-leaderboard__main">
+                        <span class="ranked-leaderboard__place{% if row.position == 1 %} ranked-leaderboard__place--gold{% elif row.position == 2 %} ranked-leaderboard__place--silver{% elif row.position == 3 %} ranked-leaderboard__place--bronze{% endif %}">{{ row.position }}</span>
+                        <div class="room-roster__avatar ranked-leaderboard__avatar" aria-hidden="true">
+                            {% if row.avatar_url %}
+                            <img src="{{ row.avatar_url }}" alt="Аватар {{ row.display_name }}">
+                            {% else %}
+                            <span>{{ row.display_name|slice:':2'|upper }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="ranked-leaderboard__identity">
+                            <strong>@{{ row.username }}</strong>
+                            <span>{{ row.display_name }}</span>
+                        </div>
+                    </div>
+                    <div class="rooms-section__badge">{{ row.rating_points }}</div>
+                </article>
+                {% empty %}
+                <p class="record-history__empty">Пока нет рейтинговых игроков.</p>
+                {% endfor %}
+            </div>
+        </article>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+{{ block.super }}
+<script type="module" src="{% static 'main/js/ranked-game.js' %}"></script>
+{% endblock %}

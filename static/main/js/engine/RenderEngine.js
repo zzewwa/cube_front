@@ -11,7 +11,8 @@ export class RenderEngine {
         fogDensity,
         onResize,
         onKeyDown,
-        onWheel
+        onWheel,
+        enableInteractionEvents = true,
     }) {
         this.containerSelector = containerSelector;
         this.cameraConfig = cameraConfig;
@@ -22,11 +23,13 @@ export class RenderEngine {
         this.onResize = onResize;
         this.onKeyDown = onKeyDown;
         this.onWheel = onWheel;
+        this.enableInteractionEvents = enableInteractionEvents;
 
         this.scene = null;
         this.camera = null;
         this.renderer = null;
         this.controls = null;
+        this.container = null;
 
         this._isRunning = false;
         this._animationFrameId = null;
@@ -44,6 +47,17 @@ export class RenderEngine {
         };
     }
 
+    _getViewportSize() {
+        if (!this.container) {
+            return { width: window.innerWidth, height: window.innerHeight };
+        }
+
+        const rect = this.container.getBoundingClientRect();
+        const width = Math.max(1, Math.round(rect.width));
+        const height = Math.max(1, Math.round(rect.height));
+        return { width, height };
+    }
+
     init() {
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(this.sceneColor);
@@ -53,22 +67,26 @@ export class RenderEngine {
 
         this.renderer = new THREE.WebGLRenderer({ antialias: true });
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.outputColorSpace = THREE.SRGBColorSpace;
 
-        const sceneBackdrop = document.querySelector(this.containerSelector);
-        if (sceneBackdrop) {
-            const existingCanvas = sceneBackdrop.querySelector('canvas');
+        this.container = document.querySelector(this.containerSelector);
+        if (this.container) {
+            const existingCanvas = this.container.querySelector('canvas');
             if (existingCanvas) {
                 existingCanvas.remove();
             }
-            sceneBackdrop.appendChild(this.renderer.domElement);
+            this.container.appendChild(this.renderer.domElement);
             this.renderer.domElement.style.display = 'block';
+            this.renderer.domElement.style.width = '100%';
+            this.renderer.domElement.style.height = '100%';
         }
+
+        const viewport = this._getViewportSize();
+        this.renderer.setSize(viewport.width, viewport.height);
 
         this.camera = new THREE.PerspectiveCamera(
             this.cameraConfig.fov,
-            window.innerWidth / window.innerHeight,
+            viewport.width / viewport.height,
             this.cameraConfig.near,
             this.cameraConfig.far
         );
@@ -89,8 +107,10 @@ export class RenderEngine {
         this.controls.autoRotateSpeed = 0.35;
 
         window.addEventListener('resize', this._boundResize, false);
-        document.addEventListener('keydown', this._boundKeyDown);
-        this.renderer.domElement.addEventListener('wheel', this._boundWheel, { passive: false });
+        if (this.enableInteractionEvents) {
+            document.addEventListener('keydown', this._boundKeyDown);
+            this.renderer.domElement.addEventListener('wheel', this._boundWheel, { passive: false });
+        }
     }
 
     start(onFrame) {
@@ -126,8 +146,9 @@ export class RenderEngine {
             return;
         }
 
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.camera.aspect = window.innerWidth / window.innerHeight;
+        const viewport = this._getViewportSize();
+        this.renderer.setSize(viewport.width, viewport.height);
+        this.camera.aspect = viewport.width / viewport.height;
         this.camera.updateProjectionMatrix();
     }
 

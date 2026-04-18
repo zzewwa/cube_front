@@ -14,21 +14,23 @@
         <div class="side-view side-view--nav">
             <div class="side-panel__header">
                 <p class="side-panel__title">Навигация</p>
-                <button class="side-panel__close" type="button" aria-label="Закрыть меню" data-menu-close>×</button>
+                <button class="side-panel__close icon-square-btn icon-square-btn--md" type="button" aria-label="Закрыть меню" data-menu-close>×</button>
             </div>
             <nav class="side-panel__nav">
                 <a href="#">Сборка кубика</a>
                 <a href="#" data-nav-open="controls">Управление</a>
-                <a href="#">Комнаты</a>
+                <a href="{% url 'rooms' %}" class="rooms-nav-link">Комнаты{% if pending_room_invites_count %}<span class="rooms-nav-badge" aria-label="Есть приглашения">{{ pending_room_invites_count }}</span>{% endif %}</a>
+                <a href="{% url 'ranked_game' %}">Рейтинговая игра</a>
                 <a href="#">Обучение</a>
             </nav>
+            <button class="side-panel__bug" type="button" data-bug-report-open>Нашли баг?</button>
             <a class="side-panel__logout" href="{% url 'logout' %}">Выйти</a>
         </div>
 
         <div class="side-view side-view--controls">
             <div class="side-panel__header">
                 <button class="side-view__back" type="button" data-side-back>← Навигация</button>
-                <button class="side-panel__close" type="button" aria-label="Закрыть меню" data-menu-close>×</button>
+                <button class="side-panel__close icon-square-btn icon-square-btn--md" type="button" aria-label="Закрыть меню" data-menu-close>×</button>
             </div>
             <div class="side-view__body">
                 <p class="side-view__heading">Управление</p>
@@ -180,6 +182,16 @@
 
     <div class="menu-overlay" data-menu-overlay></div>
 
+    <div class="bug-report-backdrop" data-bug-report-backdrop></div>
+    <div class="bug-report-modal" data-bug-report-modal aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="bug-report-title">
+        <div class="bug-report-modal__header">
+            <p id="bug-report-title" class="bug-report-modal__title">Нашли баг?</p>
+            <button class="icon-square-btn icon-square-btn--md" type="button" aria-label="Закрыть окно" data-bug-report-close>×</button>
+        </div>
+        <p class="bug-report-modal__text">Напишите в Telegram, кратко опишите проблему и приложите скриншот.</p>
+        <a class="bug-report-modal__link" href="https://t.me/achum7" target="_blank" rel="noopener noreferrer">@achum7</a>
+    </div>
+
         <button class="settings-toggle" id="settings-toggle" type="button" aria-label="Настройки">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="3"/>
@@ -190,7 +202,7 @@
         <div class="settings-panel" id="settings-panel" aria-hidden="true">
             <div class="settings-panel__header">
                 <p class="settings-panel__title">Настройки</p>
-                <button class="settings-panel__close" id="settings-close" type="button" aria-label="Закрыть настройки">×</button>
+                <button class="settings-panel__close icon-square-btn icon-square-btn--md" id="settings-close" type="button" aria-label="Закрыть настройки">×</button>
             </div>
             <div class="settings-panel__body">
 
@@ -250,7 +262,7 @@
                     <h3 class="cfg-section__title">Материал граней</h3>
                     <div class="cfg-row">
                         <label class="cfg-label" for="cfg-skin">Скин</label>
-                        <select class="cfg-select" id="cfg-skin">
+                        <select class="cfg-select site-select" id="cfg-skin">
                             <option value="classic">Classic</option>
                             <option value="lantern">Lantern</option>
                             <option value="spheres">Spheres</option>
@@ -307,7 +319,7 @@
                     </div>
                     <div class="cfg-row" id="cfg-golden-gem-glow-mode-row">
                         <label class="cfg-label" for="cfg-golden-gem-glow-mode">Свечение камней (FPS)</label>
-                        <select class="cfg-select" id="cfg-golden-gem-glow-mode">
+                        <select class="cfg-select site-select" id="cfg-golden-gem-glow-mode">
                             <option value="all">Все камни (красиво, тяжелее)</option>
                             <option value="center">Только центры (баланс)</option>
                             <option value="off">Выключено (макс FPS)</option>
@@ -371,8 +383,12 @@
         </div>
 
     <header class="dashboard-topbar">
-        <button class="profile-button" type="button" aria-label="Профиль пользователя">
-            {{ request.user.username|first|upper }}
+        <button class="profile-button" type="button" aria-label="Профиль пользователя" data-profile-open>
+            {% if profile.avatar %}
+            <img class="profile-button__avatar" src="{{ profile.avatar.url }}" alt="Аватар {{ profile.visible_name }}">
+            {% else %}
+            <span class="profile-button__initials">{{ profile.initials }}</span>
+            {% endif %}
         </button>
         <div class="dashboard-timer">
             <button class="timer-icon-btn" id="timer-icon-btn" type="button" aria-label="Начать игру" title="Начать игру">
@@ -382,6 +398,305 @@
             <span class="dashboard-timer__value" id="game-timer-value">00:00.00</span>
         </div>
     </header>
+
+    <div class="profile-modal-backdrop{% if profile_modal_open %} is-open{% endif %}" data-profile-backdrop></div>
+    <section class="profile-modal{% if profile_modal_open %} is-open{% endif %}" data-profile-modal data-profile-initial-tab="{{ profile_active_tab|default:'info' }}" aria-hidden="{% if profile_modal_open %}false{% else %}true{% endif %}">
+        <div class="profile-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="profile-modal-title">
+            <div class="profile-modal__header">
+                <div class="profile-modal__header-top">
+                    <div class="profile-modal__identity">
+                        <div class="profile-modal__avatar-wrap">
+                            <label class="profile-modal__avatar-action" for="{{ profile_form.avatar.id_for_label }}" aria-label="Изменить аватар">
+                                {% if profile.avatar %}
+                                <img class="profile-modal__avatar" src="{{ profile.avatar.url }}" alt="Аватар {{ profile.visible_name }}" data-profile-avatar-preview>
+                                {% else %}
+                                <div class="profile-modal__avatar profile-modal__avatar--placeholder" data-profile-avatar-preview-fallback>{{ profile.initials }}</div>
+                                <img class="profile-modal__avatar profile-modal__avatar--preview is-hidden" src="" alt="Предпросмотр аватара" data-profile-avatar-preview>
+                                {% endif %}
+                                <span class="profile-modal__avatar-plus">+</span>
+                            </label>
+                        </div>
+                        <div>
+                            <p class="profile-modal__eyebrow">Профиль игрока</p>
+                            <h2 class="profile-modal__title" id="profile-modal-title">{{ profile.visible_name }}</h2>
+                            <div class="profile-modal__subtitle-row">
+                                <p class="profile-modal__subtitle">@{{ request.user.username }} · {{ profile_stats.rating_points }} рейтинга</p>
+                                <button type="button" class="profile-share-icon icon-square-btn icon-square-btn--sm icon-square-btn--accent" data-profile-share data-profile-share-url="{{ profile_share_path }}" aria-label="Поделиться профилем" title="Скопировать ссылку на профиль">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <circle cx="18" cy="5" r="3"></circle>
+                                        <circle cx="6" cy="12" r="3"></circle>
+                                        <circle cx="18" cy="19" r="3"></circle>
+                                        <path d="M8.7 10.7l6.6-3.4"></path>
+                                        <path d="M8.7 13.3l6.6 3.4"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="profile-summary-cards profile-summary-cards--header">
+                        <article class="profile-summary-card profile-summary-card--accent">
+                            <p class="profile-summary-card__label">Личное лучшее время</p>
+                            <p class="profile-summary-card__value">{{ profile_summary.personal_best }}</p>
+                        </article>
+                        <article class="profile-summary-card">
+                            <p class="profile-summary-card__label">Рейтинговое лучшее время</p>
+                            <p class="profile-summary-card__value">{{ profile_summary.public_best }}</p>
+                        </article>
+                        <article class="profile-summary-card">
+                            <p class="profile-summary-card__label">Место</p>
+                            <p class="profile-summary-card__value">{% if profile_summary.rating_position %}#{{ profile_summary.rating_position }}{% else %}—{% endif %}</p>
+                        </article>
+                    </div>
+
+                    <button class="profile-modal__close icon-square-btn icon-square-btn--lg" type="button" aria-label="Закрыть профиль" data-profile-close>×</button>
+                </div>
+            </div>
+
+            <div class="profile-modal__layout">
+                <aside class="profile-tabs" aria-label="Разделы профиля">
+                    <button class="profile-tabs__button is-active" type="button" data-profile-tab-trigger="info">Личная информация</button>
+                    <button class="profile-tabs__button" type="button" data-profile-tab-trigger="personal-records">Личные игры</button>
+                    <button class="profile-tabs__button" type="button" data-profile-tab-trigger="public-records">Рейтинговые игры</button>
+                </aside>
+
+                <div class="profile-content">
+                    <section class="profile-panel is-active" data-profile-tab-panel="info">
+                        <div class="profile-panel__intro">
+                            <div>
+                                <h3>Личная информация</h3>
+                            </div>
+                            <p>Здесь можно обновить имя, контакты и аватар. Изменения сохраняются в базе данных.</p>
+                        </div>
+
+                        {% if messages %}
+                        <div class="profile-flashes">
+                            {% for message in messages %}
+                            <div class="profile-flash profile-flash--{{ message.tags|default:'info' }}">{{ message }}</div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        {% if profile_form.non_field_errors %}
+                        <div class="profile-form-errors">
+                            {% for error in profile_form.non_field_errors %}
+                            <p>{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        <form class="profile-form" action="{% url 'profile_update' %}" method="post" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            <div class="profile-avatar-input-hidden">
+                                {{ profile_form.avatar }}
+                                {{ profile_form.avatar_scale }}
+                                {{ profile_form.avatar_offset_x }}
+                                {{ profile_form.avatar_offset_y }}
+                            </div>
+                            <div class="profile-form__grid">
+                                <div class="profile-field">
+                                    <label for="{{ profile_form.display_name.id_for_label }}">Отображаемое имя</label>
+                                    {{ profile_form.display_name }}
+                                    {% if profile_form.display_name.errors %}
+                                    <div class="profile-field__error">{{ profile_form.display_name.errors|join:', ' }}</div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="profile-field">
+                                    <label for="{{ profile_form.first_name.id_for_label }}">Имя</label>
+                                    {{ profile_form.first_name }}
+                                    {% if profile_form.first_name.errors %}
+                                    <div class="profile-field__error">{{ profile_form.first_name.errors|join:', ' }}</div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="profile-field">
+                                    <label for="{{ profile_form.last_name.id_for_label }}">Фамилия</label>
+                                    {{ profile_form.last_name }}
+                                    {% if profile_form.last_name.errors %}
+                                    <div class="profile-field__error">{{ profile_form.last_name.errors|join:', ' }}</div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="profile-field">
+                                    <label for="{{ profile_form.email.id_for_label }}">Email</label>
+                                    {{ profile_form.email }}
+                                    {% if profile_form.email.errors %}
+                                    <div class="profile-field__error">{{ profile_form.email.errors|join:', ' }}</div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="profile-field">
+                                    <label for="{{ profile_form.country.id_for_label }}">Страна</label>
+                                    {{ profile_form.country }}
+                                    {% if profile_form.country.errors %}
+                                    <div class="profile-field__error">{{ profile_form.country.errors|join:', ' }}</div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="profile-field">
+                                    <label for="{{ profile_form.city.id_for_label }}">Город</label>
+                                    {{ profile_form.city }}
+                                    {% if profile_form.city.errors %}
+                                    <div class="profile-field__error">{{ profile_form.city.errors|join:', ' }}</div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="profile-field">
+                                    <label for="{{ profile_form.telegram.id_for_label }}">Telegram</label>
+                                    {{ profile_form.telegram }}
+                                    {% if profile_form.telegram.errors %}
+                                    <div class="profile-field__error">{{ profile_form.telegram.errors|join:', ' }}</div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="profile-field">
+                                    <label for="{{ profile_form.birth_date.id_for_label }}">Дата рождения</label>
+                                    {{ profile_form.birth_date }}
+                                    {% if profile_form.birth_date.errors %}
+                                    <div class="profile-field__error">{{ profile_form.birth_date.errors|join:', ' }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            {% if profile_form.avatar.errors %}
+                            <div class="profile-field__error">{{ profile_form.avatar.errors|join:', ' }}</div>
+                            {% endif %}
+
+                            <div class="profile-form__actions">
+                                <button class="primary-button profile-form__submit is-hidden" type="submit" data-profile-save-button>Сохранить</button>
+                            </div>
+                        </form>
+                    </section>
+
+                    <section class="profile-panel" data-profile-tab-panel="personal-records">
+                        <div class="profile-panel__intro">
+                            <div>
+                                <h3>Личные игры</h3>
+                            </div>
+                            <p>История личных запусков: попытки из одиночного режима помечаются как single, из комнаты как room.</p>
+                        </div>
+
+                        <div class="attempt-chart" data-attempt-chart data-chart-points-id="personal-attempt-chart-data" data-default-count="10">
+                            <div class="attempt-chart__header">
+                                <h4>График последних попыток</h4>
+                                <div class="attempt-chart__controls">
+                                    <button type="button" class="attempt-chart__count-btn" data-attempt-chart-count="5">5</button>
+                                    <button type="button" class="attempt-chart__count-btn is-active" data-attempt-chart-count="10">10</button>
+                                    <button type="button" class="attempt-chart__count-btn" data-attempt-chart-count="20">20</button>
+                                    <button type="button" class="attempt-chart__count-btn" data-attempt-chart-count="50">50</button>
+                                </div>
+                            </div>
+                            <div class="attempt-chart__plot" data-attempt-chart-plot></div>
+                        </div>
+
+                        <div class="record-history">
+                            <div class="record-history__header">
+                                <h4>История</h4>
+                                <span>{{ profile_stats.personal_attempts_total }} попыток</span>
+                            </div>
+                            <div class="record-history__list">
+                                {% for attempt in personal_record_history %}
+                                <article class="record-history__item">
+                                    <strong>{{ attempt.time }}</strong>
+                                    <span>{{ attempt.datetime }} · {{ attempt.source }}</span>
+                                </article>
+                                {% empty %}
+                                <p class="record-history__empty">Пока нет личных попыток.</p>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="profile-panel" data-profile-tab-panel="public-records">
+                        <div class="profile-panel__intro">
+                            <div>
+                                <h3>Рейтинговые игры</h3>
+                            </div>
+                            <p>Результаты, участвующие в публичном зачете, и сводка рейтинга игрока.</p>
+                        </div>
+
+                        <div class="attempt-chart" data-attempt-chart data-chart-points-id="public-attempt-chart-data" data-default-count="10">
+                            <div class="attempt-chart__header">
+                                <h4>График последних попыток</h4>
+                                <div class="attempt-chart__controls">
+                                    <button type="button" class="attempt-chart__count-btn" data-attempt-chart-count="5">5</button>
+                                    <button type="button" class="attempt-chart__count-btn is-active" data-attempt-chart-count="10">10</button>
+                                    <button type="button" class="attempt-chart__count-btn" data-attempt-chart-count="20">20</button>
+                                    <button type="button" class="attempt-chart__count-btn" data-attempt-chart-count="50">50</button>
+                                </div>
+                            </div>
+                            <div class="attempt-chart__plot" data-attempt-chart-plot></div>
+                        </div>
+
+                        <div class="stats-grid stats-grid--rating">
+                            <article class="stats-card stats-card--accent">
+                                <p class="stats-card__label">Рейтинговые очки</p>
+                                <p class="stats-card__value">{{ profile_stats.rating_points }}</p>
+                            </article>
+                            <article class="stats-card">
+                                <p class="stats-card__label">Позиция</p>
+                                <p class="stats-card__value">{% if profile_stats.rating_position %}#{{ profile_stats.rating_position }}{% else %}—{% endif %}</p>
+                            </article>
+                        </div>
+
+                        <div class="record-history">
+                            <div class="record-history__header">
+                                <h4>История</h4>
+                                <span>{{ profile_stats.public_attempts_total }} попыток</span>
+                            </div>
+                            <div class="record-history__list">
+                                {% for attempt in public_record_history %}
+                                <article class="record-history__item">
+                                    <strong>{{ attempt.time }}</strong>
+                                    <span>{{ attempt.datetime }}</span>
+                                </article>
+                                {% empty %}
+                                <p class="record-history__empty">Пока нет публичных попыток.</p>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </section>
+                </div>
+                {{ personal_attempt_chart|json_script:'personal-attempt-chart-data' }}
+                {{ public_attempt_chart|json_script:'public-attempt-chart-data' }}
+            </div>
+        </div>
+    </section>
+
+    <div class="avatar-cropper-backdrop" data-avatar-cropper-backdrop></div>
+    <section class="avatar-cropper-modal" data-avatar-cropper-modal aria-hidden="true">
+        <div class="avatar-cropper-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="avatar-cropper-title">
+            <div class="avatar-cropper-modal__header">
+                <h3 id="avatar-cropper-title">Кадрирование аватарки</h3>
+                <button type="button" class="avatar-cropper-modal__close icon-square-btn icon-square-btn--md" data-avatar-cropper-cancel aria-label="Закрыть редактор">×</button>
+            </div>
+
+            <div class="avatar-editor" data-avatar-editor>
+                <div class="avatar-editor__viewport" data-avatar-viewport>
+                    {% if profile.avatar %}
+                    <img class="avatar-editor__image" src="{{ profile.avatar.url }}" alt="Редактор аватара" data-avatar-editor-image>
+                    {% else %}
+                    <div class="avatar-editor__placeholder" data-avatar-editor-placeholder>{{ profile.initials }}</div>
+                    <img class="avatar-editor__image is-hidden" src="" alt="Редактор аватара" data-avatar-editor-image>
+                    {% endif %}
+                </div>
+                <div class="avatar-editor__controls">
+                    <label class="avatar-editor__label" for="avatar-scale-range">
+                        <span>Масштаб</span>
+                        <span data-avatar-scale-value>1.00x</span>
+                    </label>
+                    <input class="cfg-range" id="avatar-scale-range" type="range" min="1" max="4" step="0.01" value="1" data-avatar-scale>
+                    <p>Перетащите изображение внутри круга и подберите нужный масштаб.</p>
+                </div>
+            </div>
+
+            <div class="avatar-cropper-modal__actions">
+                <button type="button" class="profile-tabs__button" data-avatar-cropper-cancel>Отмена</button>
+                <button type="button" class="primary-button avatar-cropper-modal__apply" data-avatar-cropper-apply>Применить</button>
+            </div>
+        </div>
+    </section>
 
     <footer class="dashboard-footer">
         <p id="cube-status" class="cube-status is-solved" title="Нажмите, чтобы сбросить кубик">Собран</p>

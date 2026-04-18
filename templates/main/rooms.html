@@ -1,0 +1,171 @@
+{% extends 'main/base.html' %}
+
+{% block title %}Комнаты | My Cube{% endblock %}
+{% block body_class %}rooms-body{% endblock %}
+
+{% block content %}
+<div class="rooms-page" data-room-create-root>
+    <header class="rooms-page__header">
+        <p class="profile-modal__eyebrow">Соревновательные комнаты</p>
+        <a href="{% url 'dashboard' %}" class="profile-tabs__button">Вернуться к кубику</a>
+    </header>
+
+    {% if messages %}
+    <div class="profile-flashes">
+        {% for message in messages %}
+        <div class="profile-flash profile-flash--{{ message.tags|default:'info' }}">{{ message }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <section class="rooms-grid rooms-grid--hub">
+        <article class="rooms-card">
+            <div class="rooms-card__header rooms-card__header--spread">
+                <div>
+                    <h2>Мои комнаты</h2>
+                    <p class="rooms-card__subtitle">Создавайте свои лобби и приглашайте игроков в один клик.</p>
+                </div>
+                <button
+                    type="button"
+                    class="rooms-create-launch"
+                    data-room-create-toggle
+                    aria-controls="rooms-create-panel"
+                    aria-expanded="{% if room_form.errors %}true{% else %}false{% endif %}"
+                >
+                    <span class="rooms-create-launch__plus">+</span>
+                    <span class="rooms-create-launch__text">Создать комнату</span>
+                </button>
+            </div>
+
+            <div id="rooms-create-panel" class="rooms-create-panel{% if room_form.errors %} is-open{% endif %}" data-room-create-panel>
+                <div class="rooms-create-panel__intro">
+                    <strong>Новая комната</strong>
+                    <span>Настройте параметры, пригласите участников и сразу запускайте игру.</span>
+                </div>
+
+                <form method="post" class="rooms-create-form">
+                    {% csrf_token %}
+                    {{ room_form.invite_payload }}
+                    <div class="profile-form__grid">
+                        <div class="profile-field profile-field--wide">
+                            <label for="{{ room_form.name.id_for_label }}">Название комнаты</label>
+                            {{ room_form.name }}
+                        </div>
+                        <div class="profile-field">
+                            <label for="{{ room_form.max_players.id_for_label }}">Количество игроков</label>
+                            {{ room_form.max_players }}
+                        </div>
+                        <div class="profile-field">
+                            <label for="{{ room_form.max_spectators.id_for_label }}">Количество зрителей</label>
+                            {{ room_form.max_spectators }}
+                        </div>
+                        <div class="profile-field profile-field--wide">
+                            <label for="{{ room_form.start_mode.id_for_label }}">Как начинается игра</label>
+                            {{ room_form.start_mode }}
+                        </div>
+                        <div class="profile-field">
+                            <label for="{{ room_form.countdown_seconds.id_for_label }}">Отсчет таймера (сек)</label>
+                            {{ room_form.countdown_seconds }}
+                        </div>
+                        <div class="profile-field">
+                            <label for="{{ room_form.study_seconds.id_for_label }}">Период изучения (сек)</label>
+                            {{ room_form.study_seconds }}
+                        </div>
+                    </div>
+
+                    {% if room_form.non_field_errors %}
+                    <div class="profile-form-errors">
+                        {% for error in room_form.non_field_errors %}
+                        <p>{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <div class="rooms-invite-picker">
+                        <div class="profile-field profile-field--wide">
+                            <label for="room-user-search">Пригласить по логину</label>
+                            <input id="room-user-search" class="profile-input" type="text" placeholder="Введите логин" autocomplete="off" data-room-user-search>
+                            <div class="rooms-search-results" data-room-search-results></div>
+                        </div>
+                        <div class="rooms-selected-invites" data-room-selected-invites>
+                            <p class="record-history__empty">Пока никого не пригласили.</p>
+                        </div>
+                    </div>
+
+                    <div class="profile-form__actions">
+                        <button class="primary-button rooms-create-submit" type="submit">Создать комнату</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="record-history__list">
+                {% for room in owned_rooms %}
+                <a class="rooms-room-link" href="{% url 'room_detail' room.room_code %}">
+                    <strong>{{ room.name }}</strong>
+                    <span>{{ room.participants.count }} участников · {{ room.get_status_display }}</span>
+                </a>
+                {% empty %}
+                <p class="record-history__empty">Вы еще не создавали комнат.</p>
+                {% endfor %}
+            </div>
+        </article>
+
+        <article class="rooms-card">
+            <div class="rooms-card__header">
+                <div>
+                    <h2>Я участник</h2>
+                    <p class="rooms-card__subtitle">Здесь собраны ваши приглашения и комнаты, в которых вы уже состоите.</p>
+                </div>
+            </div>
+
+            <div class="rooms-stack">
+                <section class="rooms-section">
+                    <div class="rooms-section__header">
+                        <h3>Приглашения</h3>
+                        <span class="rooms-section__badge" data-pending-invitations-badge>{{ pending_invitations|length }}</span>
+                    </div>
+                    <div class="record-history__list" data-pending-invitations-list>
+                        {% for invitation in pending_invitations %}
+                        <article class="rooms-invitation-item">
+                            <div>
+                                <strong>{{ invitation.room.name }}</strong>
+                                <p>@{{ invitation.inviter.username }} приглашает как: {{ invitation.get_as_role_display }}</p>
+                            </div>
+                            <div class="rooms-invitation-actions">
+                                <form method="post" action="{% url 'room_invitation_action' invitation.id 'accept' %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="profile-tabs__button is-active">Принять</button>
+                                </form>
+                                <form method="post" action="{% url 'room_invitation_action' invitation.id 'decline' %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="profile-tabs__button">Отклонить</button>
+                                </form>
+                            </div>
+                        </article>
+                        {% empty %}
+                        <p class="record-history__empty">Новых приглашений нет.</p>
+                        {% endfor %}
+                    </div>
+                </section>
+
+                <section class="rooms-section">
+                    <div class="rooms-section__header">
+                        <h3>Комнаты</h3>
+                        <span class="rooms-section__badge">{{ joined_rooms|length }}</span>
+                    </div>
+                    <div class="record-history__list">
+                        {% for room in joined_rooms %}
+                        <a class="rooms-room-link" href="{% url 'room_detail' room.room_code %}">
+                            <strong>{{ room.name }}</strong>
+                            <span>создатель: @{{ room.created_by.username }}</span>
+                        </a>
+                        {% empty %}
+                        <p class="record-history__empty">Пока нет комнат, где вы участник.</p>
+                        {% endfor %}
+                    </div>
+                </section>
+            </div>
+        </article>
+    </section>
+</div>
+{% endblock %}

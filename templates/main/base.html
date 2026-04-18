@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'main/css/styles.css' %}">
+    <link rel="stylesheet" href="{% static 'main/css/styles.css' %}?v=20260418-2">
     <script type="importmap">
     {
         "imports": {
@@ -37,6 +37,13 @@
     </div>
 
     {% block content %}{% endblock %}
+    {% csrf_token %}
+    <script>
+        window.getCsrfToken = () => {
+            const token = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+            return token || '';
+        };
+    </script>
     <script type="module" src="{% static 'main/js/app.js' %}"></script>
     {% block extra_scripts %}{% endblock %}
 </body>
