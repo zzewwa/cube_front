@@ -1,0 +1,200 @@
+{% extends 'main/base.html' %}
+
+{% block title %}Профиль {{ target_user.username }} | My Cube{% endblock %}
+{% block body_class %}dashboard-body{% endblock %}
+
+{% block content %}
+<div class="public-profile-page" data-menu-root>
+    <section class="profile-modal profile-modal--public is-open" data-profile-modal data-profile-initial-tab="info" aria-hidden="false">
+        <div class="profile-modal__dialog" role="dialog" aria-modal="false" aria-labelledby="profile-modal-title">
+            <div class="profile-modal__header">
+                <div class="profile-modal__header-top">
+                    <div class="profile-modal__identity">
+                        <div class="profile-modal__avatar-wrap">
+                            {% if profile.avatar %}
+                            <img class="profile-modal__avatar" src="{{ profile.avatar.url }}" alt="Аватар {{ profile.visible_name }}">
+                            {% else %}
+                            <div class="profile-modal__avatar profile-modal__avatar--placeholder">{{ profile.initials }}</div>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <p class="profile-modal__eyebrow">Публичный профиль</p>
+                            <h1 class="profile-modal__title" id="profile-modal-title">{{ profile.visible_name }}</h1>
+                            <p class="profile-modal__subtitle">@{{ target_user.username }} · {{ profile_stats.rating_points }} рейтинга</p>
+                        </div>
+                    </div>
+
+                    <div class="profile-summary-cards profile-summary-cards--header">
+                        <article class="profile-summary-card profile-summary-card--accent">
+                            <p class="profile-summary-card__label">Личное лучшее время</p>
+                            <p class="profile-summary-card__value">{{ profile_summary.personal_best }}</p>
+                        </article>
+                        <article class="profile-summary-card">
+                            <p class="profile-summary-card__label">Рейтинговое лучшее время</p>
+                            <p class="profile-summary-card__value">{{ profile_summary.public_best }}</p>
+                        </article>
+                        <article class="profile-summary-card">
+                            <p class="profile-summary-card__label">Место</p>
+                            <p class="profile-summary-card__value">{% if profile_summary.rating_position %}#{{ profile_summary.rating_position }}{% else %}—{% endif %}</p>
+                        </article>
+                    </div>
+
+                    <a class="profile-modal__close icon-square-btn icon-square-btn--lg" href="{% url 'dashboard' %}" aria-label="Вернуться на главную">×</a>
+                </div>
+            </div>
+
+            <div class="profile-modal__layout">
+                <aside class="profile-tabs" aria-label="Разделы профиля">
+                    <button class="profile-tabs__button is-active" type="button" data-profile-tab-trigger="info">Личная информация</button>
+                    <button class="profile-tabs__button" type="button" data-profile-tab-trigger="personal-records">Личные игры</button>
+                    <button class="profile-tabs__button" type="button" data-profile-tab-trigger="public-records">Рейтинговые игры</button>
+                </aside>
+
+                <div class="profile-content">
+                    <section class="profile-panel is-active" data-profile-tab-panel="info">
+                        <div class="profile-panel__intro">
+                            <div>
+                                <h3>Личная информация</h3>
+                            </div>
+                            <p>Профиль открыт в режиме просмотра. Редактирование доступно только владельцу аккаунта.</p>
+                        </div>
+
+                        <div class="profile-form__grid">
+                            <div class="profile-field">
+                                <label>Отображаемое имя</label>
+                                <input class="profile-input" type="text" value="{{ profile.visible_name }}" readonly>
+                            </div>
+
+                            <div class="profile-field">
+                                <label>Имя</label>
+                                <input class="profile-input" type="text" value="{{ target_user.first_name }}" readonly>
+                            </div>
+
+                            <div class="profile-field">
+                                <label>Фамилия</label>
+                                <input class="profile-input" type="text" value="{{ target_user.last_name }}" readonly>
+                            </div>
+
+                            <div class="profile-field">
+                                <label>Email</label>
+                                <input class="profile-input" type="text" value="{{ target_user.email }}" readonly>
+                            </div>
+
+                            <div class="profile-field">
+                                <label>Страна</label>
+                                <input class="profile-input" type="text" value="{{ profile.country }}" readonly>
+                            </div>
+
+                            <div class="profile-field">
+                                <label>Город</label>
+                                <input class="profile-input" type="text" value="{{ profile.city }}" readonly>
+                            </div>
+
+                            <div class="profile-field">
+                                <label>Telegram</label>
+                                <input class="profile-input" type="text" value="{{ profile.telegram }}" readonly>
+                            </div>
+
+                            <div class="profile-field">
+                                <label>Дата рождения</label>
+                                <input class="profile-input" type="text" value="{% if profile.birth_date %}{{ profile.birth_date|date:'d.m.Y' }}{% endif %}" readonly>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="profile-panel" data-profile-tab-panel="personal-records">
+                        <div class="profile-panel__intro">
+                            <div>
+                                <h3>Личные игры</h3>
+                            </div>
+                            <p>История личных запусков: single и room.</p>
+                        </div>
+
+                        <div class="attempt-chart" data-attempt-chart data-chart-points-id="personal-attempt-chart-data" data-default-count="10">
+                            <div class="attempt-chart__header">
+                                <h4>График последних попыток</h4>
+                                <div class="attempt-chart__controls">
+                                    <button type="button" class="attempt-chart__count-btn" data-attempt-chart-count="5">5</button>
+                                    <button type="button" class="attempt-chart__count-btn is-active" data-attempt-chart-count="10">10</button>
+                                    <button type="button" class="attempt-chart__count-btn" data-attempt-chart-count="20">20</button>
+                                    <button type="button" class="attempt-chart__count-btn" data-attempt-chart-count="50">50</button>
+                                </div>
+                            </div>
+                            <div class="attempt-chart__plot" data-attempt-chart-plot></div>
+                        </div>
+
+                        <div class="record-history">
+                            <div class="record-history__header">
+                                <h4>История</h4>
+                                <span>{{ profile_stats.personal_attempts_total }} попыток</span>
+                            </div>
+                            <div class="record-history__list">
+                                {% for attempt in personal_record_history %}
+                                <article class="record-history__item">
+                                    <strong>{{ attempt.time }}</strong>
+                                    <span>{{ attempt.datetime }} · {{ attempt.source }}</span>
+                                </article>
+                                {% empty %}
+                                <p class="record-history__empty">Пока нет личных попыток.</p>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="profile-panel" data-profile-tab-panel="public-records">
+                        <div class="profile-panel__intro">
+                            <div>
+                                <h3>Рейтинговые игры</h3>
+                            </div>
+                            <p>Результаты, которые участвуют в публичной статистике и рейтинге.</p>
+                        </div>
+
+                        <div class="attempt-chart" data-attempt-chart data-chart-points-id="public-attempt-chart-data" data-default-count="10">
+                            <div class="attempt-chart__header">
+                                <h4>График последних попыток</h4>
+                                <div class="attempt-chart__controls">
+                                    <button type="button" class="attempt-chart__count-btn" data-attempt-chart-count="5">5</button>
+                                    <button type="button" class="attempt-chart__count-btn is-active" data-attempt-chart-count="10">10</button>
+                                    <button type="button" class="attempt-chart__count-btn" data-attempt-chart-count="20">20</button>
+                                    <button type="button" class="attempt-chart__count-btn" data-attempt-chart-count="50">50</button>
+                                </div>
+                            </div>
+                            <div class="attempt-chart__plot" data-attempt-chart-plot></div>
+                        </div>
+
+                        <div class="stats-grid stats-grid--rating">
+                            <article class="stats-card stats-card--accent">
+                                <p class="stats-card__label">Рейтинговые очки</p>
+                                <p class="stats-card__value">{{ profile_stats.rating_points }}</p>
+                            </article>
+                            <article class="stats-card">
+                                <p class="stats-card__label">Позиция</p>
+                                <p class="stats-card__value">{% if profile_stats.rating_position %}#{{ profile_stats.rating_position }}{% else %}—{% endif %}</p>
+                            </article>
+                        </div>
+
+                        <div class="record-history">
+                            <div class="record-history__header">
+                                <h4>История</h4>
+                                <span>{{ profile_stats.public_attempts_total }} попыток</span>
+                            </div>
+                            <div class="record-history__list">
+                                {% for attempt in public_record_history %}
+                                <article class="record-history__item">
+                                    <strong>{{ attempt.time }}</strong>
+                                    <span>{{ attempt.datetime }}</span>
+                                </article>
+                                {% empty %}
+                                <p class="record-history__empty">Пока нет публичных попыток.</p>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </section>
+                </div>
+                {{ personal_attempt_chart|json_script:'personal-attempt-chart-data' }}
+                {{ public_attempt_chart|json_script:'public-attempt-chart-data' }}
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}
