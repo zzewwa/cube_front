@@ -2322,7 +2322,15 @@ const initApp = () => {
 
     const gmDisplay = (text) => { if (gameTimerValEl) gameTimerValEl.textContent = text; };
 
-    const gmPhase = (text) => { if (goPhaseLbl) goPhaseLbl.textContent = text; };
+    const gmPhase = (text) => {
+        if (!goPhaseLbl) {
+            return;
+        }
+        const value = String(text || '').trim();
+        goPhaseLbl.textContent = value;
+        goPhaseLbl.classList.toggle('is-visible', value.length > 0);
+        goPhaseLbl.closest('.dashboard-timer')?.classList.toggle('has-phase', value.length > 0);
+    };
 
     const gmFmt = (ms) => {
         const s  = Math.floor(ms / 1000);
