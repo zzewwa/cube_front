@@ -1450,10 +1450,14 @@ body.is-ready .dashboard-topbar {
     display: inline-flex;
     flex-direction: column;
     align-items: center;
-    gap: 12px;
+    gap: 6px;
     color: var(--text-main);
     font-size: clamp(1rem, 1.3vw, 1.15rem);
     font-weight: 600;
+}
+
+.dashboard-timer.has-phase {
+    gap: 10px;
 }
 
 .dashboard-timer__value {
@@ -1470,6 +1474,7 @@ body.is-ready .dashboard-topbar {
     text-align: center;
     white-space: nowrap;
     overflow: hidden;
+    display: none;
 }
 
 .timer-icon {
@@ -3740,9 +3745,12 @@ kbd {
     letter-spacing: 0.12em;
     text-transform: uppercase;
     opacity: 0.5;
-    min-height: 1em;
-    display: block;
+    min-height: 0;
     text-align: center;
+}
+
+.dashboard-timer__phase.is-visible {
+    display: block;
 }
 
 /* ══════════════════════════════════════════

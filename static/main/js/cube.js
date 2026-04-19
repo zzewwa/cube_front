@@ -294,6 +294,8 @@ export class RubiksCube {
         };
         // reverse: assigned code -> slot
         this._reverseKeymap = { ...this.keymap };
+        this.reverseModifierCode = this.config.runtime?.reverseModifierCode || 'ShiftLeft';
+        this.pressedKeyCodes = new Set();
 
         this.rowGroupCubeNames = {
             KeyQ: ['1', '4', '7', '10', '13', '16', '19', '22', '25'],
@@ -361,6 +363,18 @@ export class RubiksCube {
     }
     
     init() {
+        if (this.instanceOptions.enableKeyboard) {
+            document.addEventListener('keydown', (event) => {
+                this.pressedKeyCodes.add(event.code);
+            });
+            document.addEventListener('keyup', (event) => {
+                this.pressedKeyCodes.delete(event.code);
+            });
+            window.addEventListener('blur', () => {
+                this.pressedKeyCodes.clear();
+            });
+        }
+
         if (this.instanceOptions.externalRenderEngine) {
             this.renderEngine = this.instanceOptions.externalRenderEngine;
         } else {
@@ -896,8 +910,31 @@ export class RubiksCube {
         if (slotCode && this.rowKeyToRotationIndex[slotCode]) {
             event.preventDefault();
             const [forwardIndex, reverseIndex] = this.rowKeyToRotationIndex[slotCode];
-            this.enqueueRowRotation(slotCode, event.shiftKey ? reverseIndex : forwardIndex);
+            const reverseActive = this._isReverseModifierActive(event);
+            this.enqueueRowRotation(slotCode, reverseActive ? reverseIndex : forwardIndex);
         }
+    }
+
+    _isReverseModifierActive(event) {
+        const code = this.reverseModifierCode;
+        if (!code) {
+            return event.shiftKey;
+        }
+
+        if (code === 'ShiftLeft' || code === 'ShiftRight') {
+            return event.shiftKey;
+        }
+        if (code === 'ControlLeft' || code === 'ControlRight') {
+            return event.ctrlKey;
+        }
+        if (code === 'AltLeft' || code === 'AltRight') {
+            return event.altKey;
+        }
+        if (code === 'MetaLeft' || code === 'MetaRight') {
+            return event.metaKey;
+        }
+
+        return this.pressedKeyCodes.has(code);
     }
 
     enqueueGeneralRotation(index) {
@@ -1318,6 +1355,12 @@ export class RubiksCube {
     applyKeymap(km) {
         this.keymap = { ...this.keymap, ...km };
         this._buildReverseKeymap();
+    }
+
+    applyReverseModifierKey(code) {
+        this.reverseModifierCode = code || 'ShiftLeft';
+        this.config.runtime = this.config.runtime ?? {};
+        this.config.runtime.reverseModifierCode = this.reverseModifierCode;
     }
 
     _buildReverseKeymap() {

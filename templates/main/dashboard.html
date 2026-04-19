@@ -51,7 +51,7 @@
 
                 <section class="ctrl-section">
                     <p class="ctrl-section__title">Слои</p>
-                    <p class="ctrl-note ctrl-note--top">⇧ + клавиша — обратное направление</p>
+                    <p class="ctrl-note ctrl-note--top"><button type="button" class="ctrl-keybind" data-reverse-keybind>SHIFT</button> + клавиша — обратное направление</p>
                     <div class="ctrl-group">
                         <div class="ctrl-row">
                             <span class="ctrl-desc">Ось X (лево → право)</span>
@@ -266,8 +266,6 @@
                             <option value="classic">Classic</option>
                             <option value="lantern">Lantern</option>
                             <option value="spheres">Spheres</option>
-                            <option value="water">Water Core</option>
-                            <option value="golden">Golden</option>
                             <option value="magic8ball">Magic 8-Ball</option>
                         </select>
                     </div>
@@ -436,11 +434,11 @@
 
                     <div class="profile-summary-cards profile-summary-cards--header">
                         <article class="profile-summary-card profile-summary-card--accent">
-                            <p class="profile-summary-card__label">Личное лучшее время</p>
+                            <p class="profile-summary-card__label">Лучшее личное</p>
                             <p class="profile-summary-card__value">{{ profile_summary.personal_best }}</p>
                         </article>
                         <article class="profile-summary-card">
-                            <p class="profile-summary-card__label">Рейтинговое лучшее время</p>
+                            <p class="profile-summary-card__label">Лучшее рейтинговое</p>
                             <p class="profile-summary-card__value">{{ profile_summary.public_best }}</p>
                         </article>
                         <article class="profile-summary-card">

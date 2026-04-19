@@ -783,6 +783,9 @@ const initRoomLive = () => {
         if (settingsState.skinId === 'matte') {
             settingsState.skinId = 'classic';
         }
+        if (settingsState.skinId === 'water' || settingsState.skinId === 'golden') {
+            settingsState.skinId = 'classic';
+        }
     };
 
     const saveSettings = () => {
@@ -939,9 +942,13 @@ const initRoomLive = () => {
     };
 
     const setPhase = (text) => {
-        if (phaseLabel) {
-            phaseLabel.textContent = text;
+        if (!phaseLabel) {
+            return;
         }
+        const value = String(text || '').trim();
+        phaseLabel.textContent = value;
+        phaseLabel.classList.toggle('is-visible', value.length > 0);
+        phaseLabel.closest('.dashboard-timer')?.classList.toggle('has-phase', value.length > 0);
     };
 
     const setNotice = (text, kind = '') => {

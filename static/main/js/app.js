@@ -15,8 +15,15 @@ const initApp = () => {
         KeyA: 'KeyA', KeyS: 'KeyS', KeyD: 'KeyD',
         KeyR: 'KeyR', KeyF: 'KeyF', KeyV: 'KeyV'
     };
+    const normalizeSelectableSkin = (value) => {
+        if (value === 'golden' || value === 'water') {
+            return 'classic';
+        }
+        return value;
+    };
 
     let keymap = { ...defaultKeymap, ...(savedSettings.keymap ?? {}) };
+    let reverseModifierCode = savedSettings.reverseModifierCode ?? 'ShiftLeft';
     let rotateSensitivity = savedSettings.rotateSensitivity ?? 1.0;
     let zoomMode = savedSettings.zoomMode ?? 'stepped';
     let zoomStep = savedSettings.zoomStep ?? 1.5;
@@ -48,6 +55,7 @@ const initApp = () => {
     if (skinId === 'matte') {
         skinId = 'classic';
     }
+    skinId = normalizeSelectableSkin(skinId);
 
     const cubeConfig = JSON.parse(JSON.stringify(CUBE_CONFIG));
     if (savedSettings.bgColor !== undefined) cubeConfig.scene.backgroundColor = savedSettings.bgColor;
@@ -72,6 +80,7 @@ const initApp = () => {
     if (savedSettings.debugFpsEnabled !== undefined) cubeConfig.debug.fpsEnabled = Boolean(savedSettings.debugFpsEnabled);
     cubeConfig.runtime = cubeConfig.runtime ?? {};
     cubeConfig.runtime.skinId = skinId;
+    cubeConfig.runtime.reverseModifierCode = reverseModifierCode;
     cubeConfig.runtime.lantern = cubeConfig.runtime.lantern ?? {};
     cubeConfig.runtime.lantern.opacity = lanternOpacity;
     cubeConfig.runtime.lantern.lightIntensity = lanternLightIntensity;
@@ -115,6 +124,7 @@ const initApp = () => {
                                         if (skinId === 'matte') {
                                             skinId = 'classic';
                                         }
+                                        skinId = normalizeSelectableSkin(skinId);
                                         cubeConfig.runtime.skinId = skinId;
 
                                         setTimeout(syncSkinSelectUi, 0);
@@ -226,6 +236,7 @@ const initApp = () => {
                 settingsAutoRotateEnabled,
                 cubeNetVisible: cubeNetToggle?.checked ?? true,
                 keymap,
+                reverseModifierCode,
                 rotateSensitivity,
                 zoomMode,
                 zoomStep,
@@ -1789,10 +1800,17 @@ const initApp = () => {
     };
 
     const keybindButtons = Array.from(document.querySelectorAll('[data-keybind]'));
+    const reverseKeybindButton = document.querySelector('[data-reverse-keybind]');
     let pendingKeybindSlot = null;
+    let pendingReverseKeybind = false;
 
     const formatKeyCode = (code) => {
         if (!code) return '';
+        if (code === 'Space') return 'SPACE';
+        if (code === 'ShiftLeft' || code === 'ShiftRight') return 'SHIFT';
+        if (code === 'ControlLeft' || code === 'ControlRight') return 'CTRL';
+        if (code === 'AltLeft' || code === 'AltRight') return 'ALT';
+        if (code === 'MetaLeft' || code === 'MetaRight') return 'META';
         if (code.startsWith('Key')) return code.slice(3).toUpperCase();
         if (code.startsWith('Digit')) return code.slice(5);
         return code;
@@ -1805,12 +1823,17 @@ const initApp = () => {
             button.textContent = pendingKeybindSlot === slot ? '...' : formatKeyCode(keymap[slot]);
             button.classList.toggle('is-listening', pendingKeybindSlot === slot);
         });
+        if (reverseKeybindButton) {
+            reverseKeybindButton.textContent = pendingReverseKeybind ? '...' : formatKeyCode(reverseModifierCode);
+            reverseKeybindButton.classList.toggle('is-listening', pendingReverseKeybind);
+        }
     };
 
     const applyControlSettings = () => {
         const cube = getCube();
         if (!cube) return;
         cube.applyKeymap(keymap);
+        cube.applyReverseModifierKey(reverseModifierCode);
         cube.applyRotateSensitivity(rotateSensitivity);
         cube.applyZoomSettings(zoomMode, zoomStep, zoomSmoothSpeed, zoomMin, zoomMax);
         cube.applyLanternSettings(lanternOpacity, lanternLightIntensity, lanternPulseSpeed, lanternEmberSize, lanternShowEmbers);
@@ -2107,12 +2130,19 @@ const initApp = () => {
     keybindButtons.forEach((button) => {
         button.addEventListener('click', () => {
             pendingKeybindSlot = button.dataset.keybind ?? null;
+            pendingReverseKeybind = false;
             refreshKeybindButtons();
         });
     });
 
+    reverseKeybindButton?.addEventListener('click', () => {
+        pendingKeybindSlot = null;
+        pendingReverseKeybind = true;
+        refreshKeybindButtons();
+    });
+
     document.addEventListener('keydown', (event) => {
-        if (!pendingKeybindSlot) {
+        if (!pendingKeybindSlot && !pendingReverseKeybind) {
             return;
         }
 
@@ -2121,7 +2151,16 @@ const initApp = () => {
 
         if (event.code === 'Escape') {
             pendingKeybindSlot = null;
+            pendingReverseKeybind = false;
             refreshKeybindButtons();
+            return;
+        }
+
+        if (pendingReverseKeybind) {
+            reverseModifierCode = event.code;
+            pendingReverseKeybind = false;
+            refreshKeybindButtons();
+            getCube()?.applyReverseModifierKey(reverseModifierCode);
             return;
         }
 
@@ -2283,7 +2322,15 @@ const initApp = () => {
 
     const gmDisplay = (text) => { if (gameTimerValEl) gameTimerValEl.textContent = text; };
 
-    const gmPhase = (text) => { if (goPhaseLbl) goPhaseLbl.textContent = text; };
+    const gmPhase = (text) => {
+        if (!goPhaseLbl) {
+            return;
+        }
+        const value = String(text || '').trim();
+        goPhaseLbl.textContent = value;
+        goPhaseLbl.classList.toggle('is-visible', value.length > 0);
+        goPhaseLbl.closest('.dashboard-timer')?.classList.toggle('has-phase', value.length > 0);
+    };
 
     const gmFmt = (ms) => {
         const s  = Math.floor(ms / 1000);
