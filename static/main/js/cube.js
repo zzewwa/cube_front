@@ -1208,16 +1208,23 @@ export class RubiksCube {
             return null;
         }
 
-        const stepAngle = Math.PI / (2 * this.config.rotation.stepsPerTurn);
+        const stepsPerTurn = Number(this.config.rotation.stepsPerTurn);
+        if (!Number.isFinite(stepsPerTurn) || stepsPerTurn <= 0) {
+            commitRotation(rotation);
+            this.renderEngine.scene.remove(rotation.group);
+            return null;
+        }
+
+        const stepAngle = Math.PI / (2 * stepsPerTurn);
         rotation.group.rotation[rotation.axis] += (rotation.sign * stepAngle);
         rotation.progress += 1;
 
-        if (rotation.progress < this.config.rotation.stepsPerTurn) {
+        if (rotation.progress < stepsPerTurn) {
             return rotation;
         }
 
         commitRotation(rotation);
-        rotation.group.rotation[rotation.axis] -= (rotation.sign * stepAngle * this.config.rotation.stepsPerTurn);
+        rotation.group.rotation[rotation.axis] -= (rotation.sign * stepAngle * stepsPerTurn);
         this.renderEngine.scene.remove(rotation.group);
         return null;
     }
@@ -1345,7 +1352,11 @@ export class RubiksCube {
     }
 
     applySpeed(stepsPerTurn) {
-        this.config.rotation.stepsPerTurn = Math.max(1, Math.round(Number(stepsPerTurn) || this.config.rotation.stepsPerTurn));
+        const numericSteps = Number(stepsPerTurn);
+        if (!Number.isFinite(numericSteps)) {
+            return;
+        }
+        this.config.rotation.stepsPerTurn = Math.max(0, Math.round(numericSteps));
     }
 
     setInputEnabled(enabled) {
