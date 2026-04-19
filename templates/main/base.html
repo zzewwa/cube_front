@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'main/css/styles.css' %}?v=20260418-2">
+    <link rel="stylesheet" href="{% static 'main/css/styles.css' %}?v=20260419-2">
     <link rel="icon" type="image/x-icon" href="{% static 'main/favicon.ico' %}?v=20260419-1">
     <script type="importmap">
     {
@@ -20,7 +20,7 @@
     </script>
     {% block extra_head %}{% endblock %}
 </head>
-<body class="{% block body_class %}{% endblock %}">
+<body class="{% block body_class %}{% endblock %}" data-user-authenticated="{% if request.user.is_authenticated %}1{% else %}0{% endif %}">
     <div class="page-loader" data-page-loader>
         <div class="page-loader__content">
             <span class="page-loader__grid" aria-hidden="true">
@@ -45,7 +45,7 @@
             return token || '';
         };
     </script>
-    <script type="module" src="{% static 'main/js/app.js' %}"></script>
+    <script type="module" src="{% static 'main/js/app.js' %}?v=20260419-2"></script>
     {% block extra_scripts %}{% endblock %}
 </body>
 </html>
