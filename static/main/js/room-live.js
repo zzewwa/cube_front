@@ -1173,6 +1173,52 @@ const initRoomLive = () => {
         });
     };
 
+    const setSettingsInteractionLocked = (locked) => {
+        const settingsToggleEl = document.getElementById('settings-toggle');
+        const controls = [
+            skinInput,
+            speedInput,
+            rotateInput,
+            cubeNetInput,
+            lanternOpacityInput,
+            lanternLightInput,
+            lanternPulseInput,
+            lanternSizeInput,
+            lanternEmbersInput,
+            spheresRadiusInput,
+            goldenShimmerInput,
+            goldenShaderEnabledInput,
+            goldenShimmerSpeedInput,
+            goldenSparkleInput,
+            goldenGemGlowModeInput,
+            goldenGemGlowIntensityInput,
+            roundedInput,
+            radiusInput,
+            metalnessInput,
+            roughnessInput,
+            settingsClose,
+        ];
+
+        if (settingsToggleEl) {
+            settingsToggleEl.disabled = locked;
+            settingsToggleEl.setAttribute('aria-disabled', String(locked));
+        }
+
+        if (settingsPanel) {
+            settingsPanel.classList.toggle('is-locked', locked);
+            if (locked) {
+                settingsPanel.classList.remove('is-open');
+                settingsPanel.setAttribute('aria-hidden', 'true');
+            }
+        }
+
+        controls.forEach((control) => {
+            if (control) {
+                control.disabled = locked;
+            }
+        });
+    };
+
     const setGameUiMode = (active) => {
         const rail = document.querySelector('.room-right-rail');
         const shouldHideUi = canPlay && active;
@@ -1187,10 +1233,11 @@ const initRoomLive = () => {
         if (ringObject) {
             ringObject.visible = !shouldHideUi;
         }
-        if (!shouldHideUi && settingsPanel?.classList.contains('is-open')) {
+        if (shouldHideUi && settingsPanel?.classList.contains('is-open')) {
             settingsPanel.classList.remove('is-open');
             settingsPanel.setAttribute('aria-hidden', 'true');
         }
+        setSettingsInteractionLocked(shouldHideUi);
     };
 
     const finishRound = (elapsedMs) => {
@@ -1423,6 +1470,9 @@ const initRoomLive = () => {
         };
 
         settingsToggle?.addEventListener('click', () => {
+            if (settingsToggle.disabled) {
+                return;
+            }
             setSettingsState(!settingsPanel?.classList.contains('is-open'));
         });
 

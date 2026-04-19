@@ -2254,6 +2254,11 @@ kbd {
         transform: translateX(0);
     }
 
+    .settings-panel.is-locked {
+        pointer-events: none;
+        opacity: 0.45;
+    }
+
     .settings-panel__header {
         display: flex;
         align-items: center;
@@ -3092,6 +3097,46 @@ kbd {
 
 .rooms-room-link span {
     color: var(--text-soft);
+}
+
+.rooms-room-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+}
+
+.rooms-room-item__leave-form {
+    margin: 0;
+}
+
+.rooms-room-remove-btn {
+    width: 42px;
+    height: 42px;
+    border: 1px solid rgba(255, 127, 127, 0.35);
+    border-radius: 12px;
+    background: rgba(255, 127, 127, 0.08);
+    color: #ff9f9f;
+    display: inline-grid;
+    place-items: center;
+    cursor: pointer;
+    transition: transform 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.rooms-room-remove-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
+.rooms-room-remove-btn:hover {
+    transform: translateY(-1px);
+    border-color: rgba(255, 127, 127, 0.62);
+    background: rgba(255, 127, 127, 0.16);
+}
+
+.rooms-room-remove-btn:focus-visible {
+    outline: 2px solid rgba(255, 127, 127, 0.7);
+    outline-offset: 2px;
 }
 
 .rooms-stack {
