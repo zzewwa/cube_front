@@ -3,6 +3,11 @@ import { CookieCube, CookieSettings } from './cookies.js';
 import { CUBE_CONFIG } from './cube-config.js';
 
 const initApp = () => {
+    // Remove legacy telemetry widget nodes if stale markup is still cached by the client.
+    document.querySelectorAll('#platform-pulse, .platform-pulse, [data-platform-pulse]').forEach((node) => {
+        node.remove();
+    });
+
     requestAnimationFrame(() => {
         document.body.classList.add('is-ready');
     });
@@ -2137,6 +2142,7 @@ const initApp = () => {
     }, (value) => value.toFixed(2));
 
     const speedLabel = (value) => {
+        if (value <= 0) return 'без анимации';
         if (value <= 8) return 'молниеносно';
         if (value <= 15) return 'быстро';
         if (value <= 25) return 'средне';
