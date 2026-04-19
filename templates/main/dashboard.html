@@ -397,45 +397,6 @@
         </div>
     </header>
 
-    <section class="platform-pulse" data-platform-pulse>
-        <header class="platform-pulse__head">
-            <div>
-                <p class="platform-pulse__eyebrow">Пульс платформы</p>
-                <h2>Живая активность</h2>
-            </div>
-            <p class="platform-pulse__stamp" data-platform-updated>обновляется…</p>
-        </header>
-
-        <div class="platform-pulse__kpis">
-            <article class="platform-kpi platform-kpi--online">
-                <p class="platform-kpi__value" data-platform-online>0</p>
-                <p class="platform-kpi__label">онлайн сейчас</p>
-            </article>
-            <article class="platform-kpi">
-                <p class="platform-kpi__value" data-platform-open-rooms>0</p>
-                <p class="platform-kpi__label">открытые комнаты</p>
-            </article>
-            <article class="platform-kpi">
-                <p class="platform-kpi__value" data-platform-total-users>0</p>
-                <p class="platform-kpi__label">всего игроков</p>
-            </article>
-        </div>
-
-        <div class="platform-pulse__timeline">
-            <div class="platform-pulse__range" role="tablist" aria-label="Масштаб графика">
-                <button type="button" class="platform-pulse__range-btn is-active" data-platform-range="300">5м</button>
-                <button type="button" class="platform-pulse__range-btn" data-platform-range="900">15м</button>
-                <button type="button" class="platform-pulse__range-btn" data-platform-range="3600">1ч</button>
-                <button type="button" class="platform-pulse__range-btn" data-platform-range="10800">3ч</button>
-            </div>
-            <div class="platform-pulse__chart" data-platform-chart></div>
-            <div class="platform-pulse__legend" aria-hidden="true">
-                <span><i class="platform-pulse__dot platform-pulse__dot--online"></i>Онлайн</span>
-                <span><i class="platform-pulse__dot platform-pulse__dot--rooms"></i>Открытые комнаты</span>
-            </div>
-        </div>
-    </section>
-
     <div class="profile-modal-backdrop{% if profile_modal_open %} is-open{% endif %}" data-profile-backdrop></div>
     <section class="profile-modal{% if profile_modal_open %} is-open{% endif %}" data-profile-modal data-profile-initial-tab="{{ profile_active_tab|default:'info' }}" aria-hidden="{% if profile_modal_open %}false{% else %}true{% endif %}">
         <div class="profile-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="profile-modal-title">
