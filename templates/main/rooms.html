@@ -100,10 +100,20 @@
 
             <div class="record-history__list">
                 {% for room in owned_rooms %}
-                <a class="rooms-room-link" href="{% url 'room_detail' room.room_code %}">
-                    <strong>{{ room.name }}</strong>
-                    <span>{{ room.participants.count }} участников · {{ room.get_status_display }}</span>
-                </a>
+                <article class="rooms-room-item">
+                    <a class="rooms-room-link" href="{% url 'room_detail' room.room_code %}">
+                        <strong>{{ room.name }}</strong>
+                        <span>{{ room.participants.count }} участников · {{ room.get_status_display }}</span>
+                    </a>
+                    <form method="post" action="{% url 'room_leave' room.room_code %}" class="rooms-room-item__leave-form">
+                        {% csrf_token %}
+                        <button class="rooms-room-remove-btn" type="submit" aria-label="Покинуть комнату {{ room.name }}" title="Покинуть комнату">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v8h-2V9zm4 0h2v8h-2V9zM7 9h2v8H7V9zm1 12h8a2 2 0 0 0 2-2V8H6v11a2 2 0 0 0 2 2z" fill="currentColor"></path>
+                            </svg>
+                        </button>
+                    </form>
+                </article>
                 {% empty %}
                 <p class="record-history__empty">Вы еще не создавали комнат.</p>
                 {% endfor %}
