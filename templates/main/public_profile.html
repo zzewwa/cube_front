@@ -20,7 +20,7 @@
                         <div>
                             <p class="profile-modal__eyebrow">Публичный профиль</p>
                             <h1 class="profile-modal__title" id="profile-modal-title">{{ profile.visible_name }}</h1>
-                            <p class="profile-modal__subtitle">@{{ target_user.username }} · {{ profile_stats.rating_points }} рейтинга</p>
+                            <p class="profile-modal__subtitle">@{{ target_user.username }} · {{ profile_stats.rating_points }} CRP</p>
                         </div>
                     </div>
 
@@ -33,9 +33,9 @@
                             <p class="profile-summary-card__label">Лучшее рейтинговое</p>
                             <p class="profile-summary-card__value">{{ profile_summary.public_best }}</p>
                         </article>
-                        <article class="profile-summary-card">
+                        <article class="profile-summary-card{% if profile_summary.rating_position == 1 %} profile-summary-card--gold{% elif profile_summary.rating_position == 2 %} profile-summary-card--silver{% elif profile_summary.rating_position == 3 %} profile-summary-card--bronze{% endif %}">
                             <p class="profile-summary-card__label">Место</p>
-                            <p class="profile-summary-card__value">{% if profile_summary.rating_position %}#{{ profile_summary.rating_position }}{% else %}—{% endif %}</p>
+                            <p class="profile-summary-card__value">{% if profile_summary.rating_position %}{{ profile_summary.rating_position }}{% else %}—{% endif %}</p>
                         </article>
                     </div>
 
@@ -169,7 +169,7 @@
                             </article>
                             <article class="stats-card">
                                 <p class="stats-card__label">Позиция</p>
-                                <p class="stats-card__value">{% if profile_stats.rating_position %}#{{ profile_stats.rating_position }}{% else %}—{% endif %}</p>
+                                <p class="stats-card__value">{% if profile_stats.rating_position %}{{ profile_stats.rating_position }}{% else %}—{% endif %}</p>
                             </article>
                         </div>
 
