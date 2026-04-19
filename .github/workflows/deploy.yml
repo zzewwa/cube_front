@@ -84,12 +84,12 @@ jobs:
             cd "$BACKEND_DIR"
             git fetch origin
             git checkout main || git checkout master
-            git pull origin "$(git rev-parse --abbrev-ref HEAD)"
+            git pull --rebase --autostash origin "$(git rev-parse --abbrev-ref HEAD)"
 
             cd "$FRONTEND_DIR"
             git fetch origin
             git checkout main || git checkout master
-            git pull origin "$(git rev-parse --abbrev-ref HEAD)"
+            git pull --rebase --autostash origin "$(git rev-parse --abbrev-ref HEAD)"
 
             cd "$BACKEND_DIR"
             if docker compose version >/dev/null 2>&1; then

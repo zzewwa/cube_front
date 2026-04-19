@@ -818,6 +818,24 @@ body.is-ready .dashboard-topbar {
     background: linear-gradient(135deg, rgba(255, 201, 61, 0.16), rgba(255, 201, 61, 0.03));
 }
 
+.profile-summary-card--gold {
+    border-color: rgba(255, 204, 74, 0.45);
+    box-shadow: inset 0 0 0 1px rgba(255, 204, 74, 0.14), 0 0 20px rgba(255, 204, 74, 0.12);
+    background: linear-gradient(95deg, rgba(255, 204, 74, 0.12), rgba(255, 255, 255, 0.03) 44%, rgba(255, 204, 74, 0.06));
+}
+
+.profile-summary-card--silver {
+    border-color: rgba(202, 212, 230, 0.42);
+    box-shadow: inset 0 0 0 1px rgba(202, 212, 230, 0.14), 0 0 18px rgba(202, 212, 230, 0.1);
+    background: linear-gradient(95deg, rgba(202, 212, 230, 0.12), rgba(255, 255, 255, 0.03) 44%, rgba(202, 212, 230, 0.06));
+}
+
+.profile-summary-card--bronze {
+    border-color: rgba(205, 127, 79, 0.45);
+    box-shadow: inset 0 0 0 1px rgba(205, 127, 79, 0.14), 0 0 18px rgba(205, 127, 79, 0.1);
+    background: linear-gradient(95deg, rgba(205, 127, 79, 0.12), rgba(255, 255, 255, 0.03) 44%, rgba(205, 127, 79, 0.06));
+}
+
 .profile-summary-card__label {
     margin: 0 0 8px;
     color: var(--text-soft);
