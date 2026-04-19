@@ -72,6 +72,7 @@ export const CUBE_CONFIG = {
     ,
     runtime: {
         skinId: 'classic',
+        reverseModifierCode: 'ShiftLeft',
         lantern: {
             opacity: 0.58,
             lightIntensity: 0.52,

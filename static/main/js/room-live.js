@@ -783,6 +783,9 @@ const initRoomLive = () => {
         if (settingsState.skinId === 'matte') {
             settingsState.skinId = 'classic';
         }
+        if (settingsState.skinId === 'water' || settingsState.skinId === 'golden') {
+            settingsState.skinId = 'classic';
+        }
     };
 
     const saveSettings = () => {

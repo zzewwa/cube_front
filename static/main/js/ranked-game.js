@@ -41,8 +41,8 @@ const initRankedGame = () => {
             waitTimeNode.textContent = formatWait(queueSeconds);
         }
         if (findButton) {
-            findButton.disabled = queued;
-            findButton.textContent = queued ? 'Поиск соперника...' : 'Найти игру';
+            findButton.disabled = false;
+            findButton.textContent = queued ? 'Отменить поиск' : 'Найти игру';
         }
     };
 
@@ -84,6 +84,43 @@ const initRankedGame = () => {
         }
     };
 
+    const leaveQueue = async () => {
+        if (findButton) {
+            findButton.disabled = true;
+        }
+        setStatus('Выходим из очереди...');
+
+        try {
+            const response = await fetch('/ranked/queue/leave/', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'X-CSRFToken': window.getCsrfToken ? window.getCsrfToken() : '',
+                },
+            });
+            const payload = await response.json();
+            if (!response.ok || !payload.ok) {
+                setStatus(payload.error || 'Не удалось отменить поиск', 'is-error');
+                if (findButton) {
+                    findButton.disabled = false;
+                }
+                return;
+            }
+
+            applyQueueUi({
+                queued: false,
+                waitingCount: Number(payload.waiting_count) || 0,
+                queueSeconds: 0,
+            });
+            setStatus('Поиск отменен');
+        } catch (_error) {
+            setStatus('Сетевая ошибка при отмене поиска', 'is-error');
+            if (findButton) {
+                findButton.disabled = false;
+            }
+        }
+    };
+
     const pollStatus = async () => {
         try {
             const response = await fetch('/ranked/queue/status/', {
@@ -118,6 +155,7 @@ const initRankedGame = () => {
 
     findButton?.addEventListener('click', () => {
         if (inQueue) {
+            void leaveQueue();
             return;
         }
         void joinQueue();
