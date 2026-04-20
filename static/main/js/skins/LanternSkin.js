@@ -67,6 +67,10 @@ const EMBER_RENDER_MAX = 0.49;
  *   showEmbers       boolean        whether the glow sprites are visible
  */
 export class LanternSkin extends BaseSkin {
+    static createPreview(context = {}) {
+        return BaseSkin.createPreview(context);
+    }
+
     constructor(cube) {
         super(cube);
         this.opacity        = cube.config.runtime?.lantern?.opacity ?? 0.58;

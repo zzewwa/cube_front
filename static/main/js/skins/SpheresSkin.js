@@ -2,6 +2,10 @@ import * as THREE from 'three';
 import { BaseSkin } from './BaseSkin.js';
 
 export class SpheresSkin extends BaseSkin {
+    static createPreview(context = {}) {
+        return BaseSkin.createPreview(context);
+    }
+
     constructor(cube) {
         super(cube);
         this._originalGeometryByMeshId = new Map();

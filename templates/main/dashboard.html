@@ -3,6 +3,24 @@
 {% block title %}Главная | My Cube{% endblock %}
 {% block body_class %}dashboard-body{% endblock %}
 
+{% block extra_head %}
+<style>
+    section.attempt-history-inline,
+    section.attempt-history-inline.is-open {
+        margin: 0 !important;
+        padding: 0 !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        background: none !important;
+        box-shadow: none !important;
+    }
+
+    .attempt-history-drawer__grid {
+        margin-top: 10px !important;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="dashboard-shell" data-menu-root>
     <div class="scene-backdrop" aria-hidden="true">
@@ -634,7 +652,15 @@
                             </div>
                             <div class="record-history__list">
                                 {% for attempt in personal_record_history %}
-                                <article class="record-history__item">
+                                <article
+                                    class="record-history__item record-history__item--clickable"
+                                    data-attempt-history-open
+                                    data-attempt-id="{{ attempt.id }}"
+                                    data-attempt-index="{{ forloop.counter0 }}"
+                                    tabindex="0"
+                                    role="button"
+                                    aria-label="Открыть историю действий для попытки {{ attempt.time }}"
+                                >
                                     <strong>{{ attempt.time }}</strong>
                                     <span>{{ attempt.datetime }} · {{ attempt.source }}</span>
                                 </article>
@@ -643,6 +669,26 @@
                                 {% endfor %}
                             </div>
                         </div>
+
+                        <section class="attempt-history-inline" data-attempt-history-panel hidden style="margin:0;padding:0;border:0;border-radius:0;background:none;box-shadow:none;">
+                            <header class="attempt-history-drawer__header">
+                                <div>
+                                    <p class="attempt-history-drawer__kicker">История поворотов</p>
+                                    <h4 id="attempt-history-title">Попытка</h4>
+                                </div>
+                                <button type="button" class="icon-square-btn icon-square-btn--md" data-attempt-history-close aria-label="Закрыть историю">×</button>
+                            </header>
+
+                            <section class="attempt-history-drawer__start">
+                                <p data-attempt-start-title>Начальное состояние</p>
+                                <div class="attempt-history-drawer__start-canvas" data-attempt-start-preview></div>
+                            </section>
+
+                            <section class="attempt-history-drawer__moves">
+                                <p>Ходы</p>
+                                <div class="attempt-history-drawer__grid" data-attempt-history-grid style="margin-top:10px;"></div>
+                            </section>
+                        </section>
                     </section>
 
                     <section class="profile-panel" data-profile-tab-panel="public-records">
@@ -697,6 +743,7 @@
                 </div>
                 {{ personal_attempt_chart|json_script:'personal-attempt-chart-data' }}
                 {{ public_attempt_chart|json_script:'public-attempt-chart-data' }}
+                {{ personal_record_history|json_script:'personal-record-history-data' }}
             </div>
         </div>
     </section>
@@ -757,4 +804,36 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    (() => {
+        const apply = () => {
+            const panel = document.querySelector('[data-attempt-history-panel]');
+            if (panel) {
+                panel.style.setProperty('margin', '0', 'important');
+                panel.style.setProperty('padding', '0', 'important');
+                panel.style.setProperty('border', '0', 'important');
+                panel.style.setProperty('border-radius', '0', 'important');
+                panel.style.setProperty('background', 'none', 'important');
+                panel.style.setProperty('box-shadow', 'none', 'important');
+            }
+
+            const grid = document.querySelector('[data-attempt-history-grid]');
+            if (grid) {
+                grid.style.setProperty('margin-top', '10px', 'important');
+            }
+        };
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', apply);
+        } else {
+            apply();
+        }
+
+        const observer = new MutationObserver(apply);
+        observer.observe(document.documentElement, { childList: true, subtree: true });
+    })();
+</script>
 {% endblock %}

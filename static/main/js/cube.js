@@ -20,7 +20,7 @@ import { GoldenSkin } from './skins/GoldenSkin.js';
  *   1. Create a class extending BaseSkin in skins/
  *   2. Import it above and add an entry below.
  */
-const SKIN_REGISTRY = {
+export const SKIN_REGISTRY = {
     classic: ClassicSkin,
     lantern: LanternSkin,
     spheres: SpheresSkin,
@@ -84,6 +84,7 @@ export class RubiksCube {
         this.generalQueue = [];
         this.activeGeneralRotation = null;
         this.undoHistory = [];
+        this.actionHistory = [];
         this.onSolvedChange = null;
         this.generalRotations = [
             {
@@ -1131,6 +1132,7 @@ export class RubiksCube {
         if (!rotation.isUndo) {
             this.recordHistory({ type: 'row', keyCode: rotation.key, index: rotation.time });
         }
+        this._recordActionToken(this._getRowActionToken(rotation));
 
         this._cubeNetDirty = true;
     }
@@ -1152,6 +1154,7 @@ export class RubiksCube {
             if (!rotation.isUndo) {
                 this.recordHistory({ type: 'general', index: rotation.time });
             }
+            this._recordActionToken(this._getGeneralActionToken(rotation));
             this._cubeNetDirty = true;
             return;
         }
@@ -1172,8 +1175,44 @@ export class RubiksCube {
         if (!rotation.isUndo) {
             this.recordHistory({ type: 'general', index: rotation.time });
         }
+        this._recordActionToken(this._getGeneralActionToken(rotation));
 
         this._cubeNetDirty = true;
+    }
+
+    _recordActionToken(token) {
+        if (!token || typeof token !== 'string') {
+            return;
+        }
+        this.actionHistory.push(token);
+    }
+
+    _getRowActionToken(rotation) {
+        const keyCode = String(rotation?.key || '');
+        const key = keyCode.startsWith('Key') ? keyCode.slice(3).toUpperCase() : keyCode;
+        const pair = this.rowKeyToRotationIndex[rotation?.key];
+        if (!pair) {
+            return key;
+        }
+        return rotation.time === pair[1] ? `!${key}` : key;
+    }
+
+    _getGeneralActionToken(rotation) {
+        const mapping = {
+            0: '↑',
+            1: '↓',
+            2: '→',
+            3: '←',
+        };
+        return mapping[rotation?.time] ?? '';
+    }
+
+    getActionHistory() {
+        return [...this.actionHistory];
+    }
+
+    clearActionHistory() {
+        this.actionHistory = [];
     }
 
     recordHistory(action) {

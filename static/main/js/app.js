@@ -1,4 +1,4 @@
-import { RubiksCube } from './cube.js';
+import { RubiksCube, SKIN_REGISTRY } from './cube.js';
 import { CookieCube, CookieSettings } from './cookies.js';
 import { CUBE_CONFIG } from './cube-config.js';
 
@@ -316,6 +316,240 @@ const initApp = () => {
 
     const customSelectRegistry = new Map();
     const customNumberRegistry = new Map();
+    const skinPreviewState = {
+        hideTimer: null,
+        cleanup: null,
+        skinId: null,
+        portal: null,
+        portalLabel: null,
+        portalCanvas: null,
+        pointerActive: false,
+        interactionGraceUntil: 0,
+    };
+
+    const isSkinSelect = (select) => select?.id === 'cfg-skin';
+
+    const clearSkinPreviewHideTimer = () => {
+        if (skinPreviewState.hideTimer !== null) {
+            clearTimeout(skinPreviewState.hideTimer);
+            skinPreviewState.hideTimer = null;
+        }
+    };
+
+    const lockSkinPreviewInteraction = (graceMs = 220) => {
+        skinPreviewState.interactionGraceUntil = Date.now() + graceMs;
+    };
+
+    const isSkinPreviewInteractionLocked = () => {
+        return skinPreviewState.pointerActive || Date.now() < skinPreviewState.interactionGraceUntil;
+    };
+
+    const destroySkinPreview = () => {
+        if (!skinPreviewState.cleanup) {
+            return;
+        }
+
+        try {
+            skinPreviewState.cleanup.destroy?.();
+        } catch (_error) {
+            // Ignore preview teardown errors.
+        }
+
+        skinPreviewState.cleanup = null;
+        skinPreviewState.skinId = null;
+    };
+
+    const hideSkinPreview = () => {
+        clearSkinPreviewHideTimer();
+        if (skinPreviewState.portal) {
+            skinPreviewState.portal.classList.remove('is-visible');
+        }
+        destroySkinPreview();
+    };
+
+    const scheduleSkinPreviewHide = () => {
+        clearSkinPreviewHideTimer();
+        skinPreviewState.hideTimer = setTimeout(() => {
+            hideSkinPreview();
+        }, 110);
+    };
+
+    const ensureSkinPreviewPortal = () => {
+        if (skinPreviewState.portal) {
+            return skinPreviewState.portal;
+        }
+
+        const portal = document.createElement('div');
+        portal.className = 'custom-select__preview custom-select__preview--floating';
+        portal.setAttribute('aria-hidden', 'true');
+
+        const label = document.createElement('p');
+        label.className = 'custom-select__preview-title';
+
+        const canvasHost = document.createElement('div');
+        canvasHost.className = 'custom-select__preview-canvas';
+
+        portal.appendChild(label);
+        portal.appendChild(canvasHost);
+        portal.addEventListener('mouseenter', clearSkinPreviewHideTimer);
+        portal.addEventListener('mouseleave', scheduleSkinPreviewHide);
+        portal.addEventListener('pointerdown', (event) => {
+            skinPreviewState.pointerActive = true;
+            lockSkinPreviewInteraction(350);
+            event.stopPropagation();
+        });
+        portal.addEventListener('click', (event) => {
+            lockSkinPreviewInteraction(350);
+            event.stopPropagation();
+        });
+        document.body.appendChild(portal);
+
+        window.addEventListener('pointerup', () => {
+            if (!skinPreviewState.pointerActive) {
+                return;
+            }
+            skinPreviewState.pointerActive = false;
+            lockSkinPreviewInteraction(350);
+        });
+
+        window.addEventListener('pointercancel', () => {
+            if (!skinPreviewState.pointerActive) {
+                return;
+            }
+            skinPreviewState.pointerActive = false;
+            lockSkinPreviewInteraction(350);
+        });
+
+        skinPreviewState.portal = portal;
+        skinPreviewState.portalLabel = label;
+        skinPreviewState.portalCanvas = canvasHost;
+        return portal;
+    };
+
+    const positionSkinPreviewPortal = (anchorElement) => {
+        if (!skinPreviewState.portal || !anchorElement) {
+            return;
+        }
+
+        const viewportPadding = 8;
+        const gap = 12;
+        const anchorRect = anchorElement.getBoundingClientRect();
+        const panelRect = anchorElement.closest('.settings-panel')?.getBoundingClientRect() ?? null;
+
+        const portalWidth = skinPreviewState.portal.offsetWidth || 150;
+        const portalHeight = skinPreviewState.portal.offsetHeight || 150;
+
+        let left = anchorRect.right + gap;
+        if (left + portalWidth > window.innerWidth - viewportPadding) {
+            const fallbackLeft = panelRect
+                ? panelRect.left - portalWidth - gap
+                : anchorRect.left - portalWidth - gap;
+            left = Math.max(viewportPadding, fallbackLeft);
+        }
+
+        let top = anchorRect.top + (anchorRect.height / 2) - (portalHeight / 2);
+        top = Math.max(viewportPadding, Math.min(window.innerHeight - portalHeight - viewportPadding, top));
+
+        skinPreviewState.portal.style.left = `${Math.round(left)}px`;
+        skinPreviewState.portal.style.top = `${Math.round(top)}px`;
+    };
+
+    const createRubiksPreview = (mountNode, previewSkinId) => {
+        const previewConfig = JSON.parse(JSON.stringify(CUBE_CONFIG));
+        previewConfig.runtime = previewConfig.runtime ?? {};
+        previewConfig.runtime.skinId = previewSkinId;
+        previewConfig.camera.fov = 38;
+        previewConfig.camera.position = { x: 0, y: -7.6, z: 5.8 };
+        previewConfig.scene.fogEnabled = false;
+        previewConfig.debug.fpsEnabled = false;
+
+        mountNode.innerHTML = '';
+
+        const previewHost = document.createElement('div');
+        const previewId = `skin-preview-${Math.random().toString(36).slice(2, 10)}`;
+        previewHost.id = previewId;
+        previewHost.className = 'custom-select__preview-canvas-host';
+        mountNode.appendChild(previewHost);
+
+        const previewCube = new RubiksCube(`#${previewId}`, null, previewConfig, {
+            enableKeyboard: false,
+            enableWheel: false,
+            enableFpsOverlay: false,
+            statusElementId: `${previewId}-status`,
+            statusResetClickable: false,
+            cubeNetWidgetId: `${previewId}-net`,
+            addLights: true,
+            autoStart: true,
+        });
+
+        previewCube.setInputEnabled(false);
+        previewCube.setSettingsPanelRotationEnabled(true);
+        previewCube.applySpeed(0);
+
+        if (previewCube.renderEngine?.controls?.target) {
+            previewCube.renderEngine.controls.target.set(0, 0, 0);
+            previewCube.renderEngine.controls.update();
+        }
+
+        return {
+            destroy: () => {
+                previewCube.renderEngine?.stop?.();
+                previewCube.activeSkin?.detach?.();
+
+                for (const mesh of previewCube.cubeMeshList || []) {
+                    mesh.geometry?.dispose?.();
+                    if (Array.isArray(mesh.material)) {
+                        mesh.material.forEach((material) => material?.dispose?.());
+                    } else {
+                        mesh.material?.dispose?.();
+                    }
+                }
+
+                if (previewCube.materialPalette) {
+                    Object.values(previewCube.materialPalette).forEach((material) => material?.dispose?.());
+                }
+
+                previewCube.renderEngine?.renderer?.dispose?.();
+                previewCube.renderEngine?.renderer?.forceContextLoss?.();
+                mountNode.innerHTML = '';
+            }
+        };
+    };
+
+    const showSkinPreview = (select, optionButton) => {
+        if (!isSkinSelect(select) || !optionButton || optionButton.disabled) {
+            return;
+        }
+
+        ensureSkinPreviewPortal();
+        if (!skinPreviewState.portal || !skinPreviewState.portalLabel || !skinPreviewState.portalCanvas) {
+            return;
+        }
+
+        const rawSkinId = optionButton.dataset.optionValue || '';
+        const previewSkinId = normalizeSelectableSkin(rawSkinId);
+        const SkinClass = SKIN_REGISTRY[previewSkinId];
+        if (!SkinClass) {
+            return;
+        }
+
+        clearSkinPreviewHideTimer();
+        skinPreviewState.portalLabel.textContent = optionButton.textContent || previewSkinId;
+        skinPreviewState.portal.classList.add('is-visible');
+        positionSkinPreviewPortal(optionButton);
+
+        if (skinPreviewState.skinId === previewSkinId && skinPreviewState.cleanup) {
+            return;
+        }
+
+        destroySkinPreview();
+        skinPreviewState.skinId = previewSkinId;
+        skinPreviewState.cleanup = SkinClass.createPreview({
+            skinId: previewSkinId,
+            mountNode: skinPreviewState.portalCanvas,
+            previewFactory: () => createRubiksPreview(skinPreviewState.portalCanvas, previewSkinId),
+        }) || createRubiksPreview(skinPreviewState.portalCanvas, previewSkinId);
+    };
 
     const syncSkinSelectUi = () => {
         const skinSelectInput = document.getElementById('cfg-skin');
@@ -342,6 +576,7 @@ const initApp = () => {
         customSelectRegistry.forEach(({ wrapper }) => {
             wrapper.classList.remove('is-open');
         });
+        hideSkinPreview();
     };
 
     const buildCustomSelectOptions = (select, menu) => {
@@ -369,6 +604,16 @@ const initApp = () => {
                 }
                 closeAllCustomSelects();
             });
+
+            if (isSkinSelect(select)) {
+                optionButton.addEventListener('mouseenter', () => {
+                    showSkinPreview(select, optionButton);
+                });
+                optionButton.addEventListener('focus', () => {
+                    showSkinPreview(select, optionButton);
+                });
+            }
+
             menu.appendChild(optionButton);
         });
     };
@@ -389,6 +634,14 @@ const initApp = () => {
             const isSelected = button.dataset.optionValue === select.value;
             button.classList.toggle('is-selected', isSelected);
         });
+
+        if (isSkinSelect(select) && entry.wrapper.classList.contains('is-open')) {
+            const selectedButton = entry.menu.querySelector('.custom-select__option.is-selected')
+                || entry.menu.querySelector('.custom-select__option:not(.is-disabled):not([disabled])');
+            if (selectedButton) {
+                showSkinPreview(select, selectedButton);
+            }
+        }
     };
 
     const initCustomSelects = (root = document) => {
@@ -433,6 +686,23 @@ const initApp = () => {
             customSelectRegistry.set(select, { wrapper, trigger, label, menu });
             syncCustomSelectState(select);
 
+            if (isSkinSelect(select)) {
+                menu.addEventListener('mouseenter', () => {
+                    const selectedButton = menu.querySelector('.custom-select__option.is-selected')
+                        || menu.querySelector('.custom-select__option:not(.is-disabled):not([disabled])');
+                    if (selectedButton) {
+                        showSkinPreview(select, selectedButton);
+                    }
+                });
+
+                menu.addEventListener('mousemove', (event) => {
+                    const optionButton = event.target.closest('.custom-select__option');
+                    if (optionButton) {
+                        showSkinPreview(select, optionButton);
+                    }
+                });
+            }
+
             trigger.addEventListener('click', () => {
                 if (select.disabled) {
                     return;
@@ -441,6 +711,23 @@ const initApp = () => {
                 closeAllCustomSelects();
                 wrapper.classList.toggle('is-open', willOpen);
                 trigger.setAttribute('aria-expanded', String(willOpen));
+
+                if (!willOpen) {
+                    hideSkinPreview();
+                } else if (isSkinSelect(select)) {
+                    const selectedButton = menu.querySelector('.custom-select__option.is-selected')
+                        || menu.querySelector('.custom-select__option:not(.is-disabled):not([disabled])');
+                    if (selectedButton) {
+                        showSkinPreview(select, selectedButton);
+                    }
+                    requestAnimationFrame(() => {
+                        const rafSelectedButton = menu.querySelector('.custom-select__option.is-selected')
+                            || menu.querySelector('.custom-select__option:not(.is-disabled):not([disabled])');
+                        if (rafSelectedButton) {
+                            showSkinPreview(select, rafSelectedButton);
+                        }
+                    });
+                }
             });
 
             trigger.addEventListener('keydown', (event) => {
@@ -470,6 +757,17 @@ const initApp = () => {
             select.addEventListener('change', () => {
                 buildCustomSelectOptions(select, menu);
                 syncCustomSelectState(select);
+                if (isSkinSelect(select)) {
+                    if (wrapper.classList.contains('is-open')) {
+                        const selectedButton = menu.querySelector('.custom-select__option.is-selected')
+                            || menu.querySelector('.custom-select__option:not(.is-disabled):not([disabled])');
+                        if (selectedButton) {
+                            showSkinPreview(select, selectedButton);
+                        }
+                    } else {
+                        hideSkinPreview();
+                    }
+                }
             });
         });
     };
@@ -555,6 +853,10 @@ const initApp = () => {
     };
 
     document.addEventListener('click', (event) => {
+        if (isSkinPreviewInteractionLocked()) {
+            return;
+        }
+
         const insideCustomSelect = event.target.closest('.custom-select');
         if (!insideCustomSelect) {
             closeAllCustomSelects();
@@ -563,6 +865,14 @@ const initApp = () => {
             });
         }
     });
+
+    window.addEventListener('resize', () => {
+        hideSkinPreview();
+    });
+
+    document.addEventListener('scroll', () => {
+        hideSkinPreview();
+    }, true);
 
     initCustomSelects();
     initCustomNumberInputs();
@@ -1076,6 +1386,7 @@ const initApp = () => {
     }
 
     let settingsAutoRotateEnabled = settingsAutoRotateToggle?.checked ?? true;
+    let closeAttemptHistoryDrawer = () => {};
 
     const setMenuState = (isOpen) => {
         if (!panel || !overlay || !toggle) {
@@ -1135,6 +1446,7 @@ const initApp = () => {
             setSettingsState(false);
             setActiveProfileTab(tabId);
         } else {
+            closeAttemptHistoryDrawer();
             setAvatarCropperState(false);
             profileFlashContainer?.querySelectorAll('.profile-flash--success').forEach((node) => node.remove());
             if (profileFlashContainer && !profileFlashContainer.children.length) {
@@ -1562,6 +1874,408 @@ const initApp = () => {
         });
     };
 
+    const initPersonalAttemptHistory = () => {
+        const sourceNode = document.getElementById('personal-record-history-data');
+        const openNodes = Array.from(document.querySelectorAll('[data-attempt-history-open]'));
+        let panel = document.querySelector('[data-attempt-history-panel]');
+
+        if (!panel && openNodes.length) {
+            panel = document.createElement('section');
+            panel.className = 'attempt-history-inline';
+            panel.dataset.attemptHistoryPanel = '';
+            panel.setAttribute('hidden', 'hidden');
+            panel.innerHTML = `
+                <header class="attempt-history-drawer__header">
+                    <div>
+                        <p class="attempt-history-drawer__kicker">История поворотов</p>
+                        <h4 id="attempt-history-title">Попытка</h4>
+                    </div>
+                    <button type="button" class="icon-square-btn icon-square-btn--md" data-attempt-history-close aria-label="Закрыть историю">×</button>
+                </header>
+                <section class="attempt-history-drawer__start">
+                    <p data-attempt-start-title>Начальное состояние</p>
+                    <div class="attempt-history-drawer__start-canvas" data-attempt-start-preview></div>
+                </section>
+                <section class="attempt-history-drawer__moves">
+                    <p>Ходы</p>
+                    <div class="attempt-history-drawer__grid" data-attempt-history-grid></div>
+                </section>
+            `;
+            openNodes[0].parentElement?.appendChild(panel);
+        }
+
+        const grid = panel?.querySelector('[data-attempt-history-grid]');
+        const startPreviewNode = panel?.querySelector('[data-attempt-start-preview]');
+        const startTitleNode = panel?.querySelector('[data-attempt-start-title]');
+        const titleNode = panel?.querySelector('#attempt-history-title');
+        const closeButtons = Array.from(panel?.querySelectorAll('[data-attempt-history-close]') || []);
+
+        if (!sourceNode || !panel || !grid || !startPreviewNode || !startTitleNode || !titleNode || !openNodes.length) {
+            return () => {};
+        }
+
+        // Force transparent panel visuals even if stale CSS is served or overridden.
+        const applyInlineHistoryVisualOverrides = () => {
+            panel.style.setProperty('margin', '0', 'important');
+            panel.style.setProperty('padding', '0', 'important');
+            panel.style.setProperty('border', '0', 'important');
+            panel.style.setProperty('border-radius', '0', 'important');
+            panel.style.setProperty('background', 'none', 'important');
+            panel.style.setProperty('box-shadow', 'none', 'important');
+            grid.style.setProperty('margin-top', '10px', 'important');
+        };
+        applyInlineHistoryVisualOverrides();
+
+        let attempts = [];
+        try {
+            attempts = JSON.parse(sourceNode.textContent || '[]');
+        } catch (_error) {
+            attempts = [];
+        }
+
+        const byId = new Map(attempts.map((item) => [String(item.id), item]));
+        let previewTeardown = null;
+        let previewCube = null;
+        let expandedNode = null;
+        let stepStates = [];
+        let stepTokens = [];
+
+        const tokenToNotation = (token) => {
+            const key = String(token || '').trim();
+            const map = {
+                Q: 'L',
+                '!Q': "L'",
+                W: 'M',
+                '!W': "M'",
+                E: 'R',
+                '!E': "R'",
+                A: 'D',
+                '!A': "D'",
+                S: 'E',
+                '!S': "E'",
+                D: 'U',
+                '!D': "U'",
+                V: 'F',
+                '!V': "F'",
+                F: 'S',
+                '!F': "S'",
+                R: 'B',
+                '!R': "B'",
+                '↑': 'x',
+                '↓': "x'",
+                '→': 'z',
+                '←': "z'",
+            };
+            return map[key] || key;
+        };
+
+        const cloneState = (state) => state.map((faces) => (Array.isArray(faces) ? [...faces] : ['h', 'h', 'h', 'h', 'h', 'h']));
+
+        const isValidMaterialsState = (state) => {
+            if (!Array.isArray(state) || state.length !== 27) {
+                return false;
+            }
+            return state.every((cubie) => Array.isArray(cubie) && cubie.length === 6);
+        };
+
+        const getPlanForToken = (cube, token) => {
+            const key = String(token || '').trim();
+            if (!key) {
+                return null;
+            }
+
+            const arrowToTime = {
+                '↑': 0,
+                '↓': 1,
+                '→': 2,
+                '←': 3,
+            };
+            if (arrowToTime[key] !== undefined) {
+                return cube.rotationPlans.get(arrowToTime[key]) || null;
+            }
+
+            const reversed = key.startsWith('!');
+            const slot = reversed ? key.slice(1) : key;
+            const slotCode = `Key${slot.toUpperCase()}`;
+            const pair = cube.rowKeyToRotationIndex?.[slotCode];
+            if (!pair) {
+                return null;
+            }
+            const rotationTime = reversed ? pair[1] : pair[0];
+            return cube.rotationPlans.get(rotationTime) || null;
+        };
+
+        const applyRotationPlanToState = (state, plan) => {
+            const next = cloneState(state);
+            const remapCubie = (sourceIndex, targetIndex) => {
+                const source = state[sourceIndex] || ['h', 'h', 'h', 'h', 'h', 'h'];
+                next[targetIndex] = [
+                    source[plan.materials[0]],
+                    source[plan.materials[1]],
+                    source[plan.materials[2]],
+                    source[plan.materials[3]],
+                    source[plan.materials[4]],
+                    source[plan.materials[5]],
+                ];
+            };
+
+            if (plan.time <= 3) {
+                const offsets = plan.axis === 'x' ? [0, 1, 2] : [0, 9, 18];
+                offsets.forEach((offset) => {
+                    for (let i = 0; i < 9; i += 1) {
+                        const sourceIndex = plan.change[i] + offset - 1;
+                        const targetIndex = plan.change[9 + i] + offset - 1;
+                        remapCubie(sourceIndex, targetIndex);
+                    }
+                });
+                return next;
+            }
+
+            for (let i = 0; i < 9; i += 1) {
+                const sourceIndex = plan.change[9 + i] - 1;
+                const targetIndex = plan.change[i] - 1;
+                remapCubie(sourceIndex, targetIndex);
+            }
+            return next;
+        };
+
+        const buildStepStates = (attempt, cube) => {
+            const moves = Array.isArray(attempt.move_history) ? attempt.move_history : [];
+            const baseState = isValidMaterialsState(attempt.initial_cube_state)
+                ? cloneState(attempt.initial_cube_state)
+                : cloneState(cube.exportMaterialsState());
+
+            let currentState = cloneState(baseState);
+            const states = [];
+
+            moves.forEach((token) => {
+                const plan = getPlanForToken(cube, token);
+                if (plan) {
+                    currentState = applyRotationPlanToState(currentState, plan);
+                }
+                states.push(cloneState(currentState));
+            });
+
+            return { baseState, states, moves };
+        };
+
+        const destroyPreview = () => {
+            if (!previewTeardown) {
+                return;
+            }
+            previewTeardown();
+            previewTeardown = null;
+            previewCube = null;
+            stepStates = [];
+            stepTokens = [];
+        };
+
+        const renderStartPreview = (attempt) => {
+            destroyPreview();
+            startPreviewNode.innerHTML = '';
+
+            const host = document.createElement('div');
+            const hostId = `attempt-start-preview-${Math.random().toString(36).slice(2, 10)}`;
+            host.id = hostId;
+            host.style.width = '100%';
+            host.style.height = '100%';
+            startPreviewNode.appendChild(host);
+
+            const previewConfig = JSON.parse(JSON.stringify(CUBE_CONFIG));
+            previewConfig.runtime = previewConfig.runtime ?? {};
+            previewConfig.runtime.skinId = 'classic';
+            previewConfig.scene.fogEnabled = false;
+            previewConfig.debug.fpsEnabled = false;
+            previewConfig.camera.fov = 38;
+            previewConfig.camera.position = { x: 0, y: -7.4, z: 5.6 };
+
+            const cube = new RubiksCube(`#${hostId}`, null, previewConfig, {
+                enableKeyboard: false,
+                enableWheel: false,
+                enableFpsOverlay: false,
+                statusElementId: `${hostId}-status`,
+                statusResetClickable: false,
+                cubeNetWidgetId: `${hostId}-net`,
+                addLights: true,
+                autoStart: true,
+            });
+
+            cube.setInputEnabled(false);
+            cube.setSettingsPanelRotationEnabled(true);
+            cube.applySpeed(0);
+            cube.applySkin('classic');
+
+            if (Array.isArray(attempt.initial_cube_state) && attempt.initial_cube_state.length === 27) {
+                cube.applyMaterialsState(attempt.initial_cube_state);
+            }
+
+            previewCube = cube;
+
+            previewTeardown = () => {
+                cube.renderEngine?.stop?.();
+                cube.activeSkin?.detach?.();
+                for (const mesh of cube.cubeMeshList || []) {
+                    mesh.geometry?.dispose?.();
+                    if (Array.isArray(mesh.material)) {
+                        mesh.material.forEach((mat) => mat?.dispose?.());
+                    }
+                }
+                if (cube.materialPalette) {
+                    Object.values(cube.materialPalette).forEach((mat) => mat?.dispose?.());
+                }
+                cube.renderEngine?.renderer?.dispose?.();
+                cube.renderEngine?.renderer?.forceContextLoss?.();
+                startPreviewNode.innerHTML = '';
+            };
+        };
+
+        const selectMoveCard = (index) => {
+            const cards = Array.from(grid.querySelectorAll('[data-attempt-step-index]'));
+            cards.forEach((card) => {
+                card.classList.toggle('is-active', Number(card.dataset.attemptStepIndex) === index);
+            });
+        };
+
+        const showStateForStep = (index, baseState) => {
+            if (!previewCube) {
+                return;
+            }
+
+            if (!Number.isInteger(index) || index < 0) {
+                previewCube.applyMaterialsState(baseState);
+                startTitleNode.textContent = 'Начальное состояние';
+                selectMoveCard(-1);
+                return;
+            }
+
+            const state = stepStates[index];
+            if (!state) {
+                return;
+            }
+
+            previewCube.applyMaterialsState(state);
+            const notation = tokenToNotation(stepTokens[index]);
+            startTitleNode.textContent = `Состояние после хода ${index + 1}: ${notation}`;
+            selectMoveCard(index);
+        };
+
+        const renderMoves = (attempt, baseState) => {
+            const moves = Array.isArray(attempt.move_history) ? attempt.move_history : [];
+            if (!moves.length) {
+                grid.innerHTML = '<p class="record-history__empty">Для этой попытки история действий не сохранена.</p>';
+                showStateForStep(-1, baseState);
+                return;
+            }
+
+            grid.innerHTML = moves
+                .map((token, index) => {
+                    const notation = tokenToNotation(token);
+                    const source = String(token || '').trim();
+                    return `
+                        <button type="button" class="attempt-history-step" data-attempt-step-index="${index}" aria-label="Показать состояние после хода ${index + 1}">
+                            <p class="attempt-history-step__index">${index + 1}</p>
+                            <p class="attempt-history-step__notation">${notation}</p>
+                            <p class="attempt-history-step__source">${source}</p>
+                        </button>
+                    `;
+                })
+                .join('');
+
+            const cards = Array.from(grid.querySelectorAll('[data-attempt-step-index]'));
+            cards.forEach((card) => {
+                card.addEventListener('click', () => {
+                    const index = Number(card.dataset.attemptStepIndex);
+                    showStateForStep(index, baseState);
+                });
+            });
+
+            showStateForStep(0, baseState);
+        };
+
+        const openPanel = (attempt, node) => {
+            applyInlineHistoryVisualOverrides();
+            panel.classList.remove('is-open');
+            panel.style.display = 'grid';
+            panel.removeAttribute('hidden');
+            node.insertAdjacentElement('afterend', panel);
+
+            titleNode.textContent = `${attempt.time} · ${attempt.datetime}`;
+
+            requestAnimationFrame(() => {
+                panel.classList.add('is-open');
+                try {
+                    renderStartPreview(attempt);
+                    if (previewCube) {
+                        const built = buildStepStates(attempt, previewCube);
+                        stepStates = built.states;
+                        stepTokens = built.moves;
+                        renderMoves(attempt, built.baseState);
+                    }
+                } catch (_error) {
+                    startPreviewNode.innerHTML = '<p class="record-history__empty">Не удалось загрузить превью стартового состояния.</p>';
+                    grid.innerHTML = '<p class="record-history__empty">Не удалось подготовить историю ходов.</p>';
+                }
+            });
+            node.classList.add('is-expanded');
+            node.setAttribute('aria-expanded', 'true');
+            expandedNode = node;
+        };
+
+        const closePanel = () => {
+            panel.classList.remove('is-open');
+            panel.setAttribute('hidden', 'hidden');
+            panel.style.display = 'none';
+            if (panel.parentElement) {
+                panel.parentElement.removeChild(panel);
+            }
+            destroyPreview();
+            if (expandedNode) {
+                expandedNode.classList.remove('is-expanded');
+                expandedNode.setAttribute('aria-expanded', 'false');
+                expandedNode = null;
+            }
+        };
+
+        closeButtons.forEach((node) => {
+            node.addEventListener('click', closePanel);
+        });
+
+        openNodes.forEach((node) => {
+            node.setAttribute('aria-expanded', 'false');
+            const openFromNode = () => {
+                const attemptId = node.dataset.attemptId;
+                const attemptIndex = Number(node.dataset.attemptIndex);
+                const attemptById = byId.get(String(attemptId || ''));
+                const attemptByIndex = Number.isInteger(attemptIndex) && attemptIndex >= 0
+                    ? attempts[attemptIndex]
+                    : null;
+                const attempt = attemptById || attemptByIndex;
+                if (!attempt) {
+                    return;
+                }
+                if (expandedNode === node) {
+                    closePanel();
+                    return;
+                }
+                if (expandedNode) {
+                    expandedNode.classList.remove('is-expanded');
+                    expandedNode.setAttribute('aria-expanded', 'false');
+                }
+                openPanel(attempt, node);
+            };
+
+            node.addEventListener('click', openFromNode);
+            node.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    openFromNode();
+                }
+            });
+        });
+
+        return closePanel;
+    };
+
     const setAvatarCropperState = (isOpen) => {
         if (!avatarCropperModal || !avatarCropperBackdrop) {
             return;
@@ -1954,8 +2668,13 @@ const initApp = () => {
     }
     initPlatformPulse();
     initAttemptCharts();
+    closeAttemptHistoryDrawer = initPersonalAttemptHistory();
 
     overlay?.addEventListener('click', () => {
+        if (isSkinPreviewInteractionLocked()) {
+            return;
+        }
+
         setMenuState(false);
         setSettingsState(false);
         setBugReportState(false);
@@ -1989,6 +2708,7 @@ const initApp = () => {
             setSettingsState(false);
             setProfileState(false);
             setBugReportState(false);
+            closeAttemptHistoryDrawer();
         }
     });
 
@@ -2497,6 +3217,7 @@ const initApp = () => {
     let gameSolveStartMs = 0;
     let gameObservedUnsolved = false;
     let gameSolveToken = 0;
+    let gameInitialCubeState = [];
 
     const getCsrfToken = () => {
         const cookie = document.cookie
@@ -2509,13 +3230,15 @@ const initApp = () => {
         return decodeURIComponent(cookie.slice('csrftoken='.length));
     };
 
-    const persistPersonalAttempt = async (elapsedMs) => {
+    const persistPersonalAttempt = async (elapsedMs, gamePayload = {}) => {
         const solveTimeSeconds = Number((elapsedMs / 1000).toFixed(2));
         if (!Number.isFinite(solveTimeSeconds) || solveTimeSeconds <= 0) {
             return;
         }
 
         const payloadValue = solveTimeSeconds.toFixed(2);
+        const moveHistory = Array.isArray(gamePayload.moveHistory) ? gamePayload.moveHistory : [];
+        const initialCubeState = Array.isArray(gamePayload.initialCubeState) ? gamePayload.initialCubeState : [];
 
         try {
             const response = await fetch('/records/personal/', {
@@ -2528,6 +3251,8 @@ const initApp = () => {
                 body: JSON.stringify({
                     solve_time_seconds: payloadValue,
                     attempt_source: 'single',
+                    move_history: moveHistory,
+                    initial_cube_state: initialCubeState,
                 }),
             });
 
@@ -2603,6 +3328,7 @@ const initApp = () => {
         gameSolveToken += 1;
         gmClear();
         gamePhase = 'idle';
+        gameInitialCubeState = [];
         gmDisplay('00:00.00');
         gmPhase('');
         gmOverlay(false);
@@ -2613,6 +3339,7 @@ const initApp = () => {
         const cube = getCube();
         if (cube) {
             cube.onSolvedChange = null;
+            cube.clearActionHistory?.();
         }
     };
 
@@ -2630,9 +3357,13 @@ const initApp = () => {
         gmPhase('собран!');
         gmIconActive(true);
         gmInput(true);
-        void persistPersonalAttempt(elapsedMs);
-        gameSolveToken += 1;
         const cube = getCube();
+        const moveHistory = cube?.getActionHistory?.() ?? [];
+        void persistPersonalAttempt(elapsedMs, {
+            moveHistory,
+            initialCubeState: gameInitialCubeState,
+        });
+        gameSolveToken += 1;
         if (cube) cube.onSolvedChange = null;
     };
 
@@ -2657,6 +3388,7 @@ const initApp = () => {
 
         const cube = getCube();
         if (cube) {
+            cube.clearActionHistory?.();
             // Reset solved-change flag so a pre-scrambled solved state doesn't fire
             cube._lastSolvedState = null;
             cube.onSolvedChange = (isSolved) => {
@@ -2685,8 +3417,10 @@ const initApp = () => {
         gamePhase = 'study';
         gmInput(false);
         // Scramble right here — overlay is still opaque so the solve state is hidden
-        getCube()?.resetCube();
-        getCube()?.scrambleInstant(50);
+        const cube = getCube();
+        cube?.resetCube();
+        cube?.scrambleInstant(50);
+        gameInitialCubeState = cube?.exportMaterialsState?.() ?? [];
         // Dismiss overlay (fade out number + background together)
         if (goNum) goNum.classList.remove('is-shown');
         gmOverlay(false);

@@ -12,6 +12,10 @@ const FACE_MARKER = {
 };
 
 export class GoldenSkin extends BaseSkin {
+    static createPreview(context = {}) {
+        return BaseSkin.createPreview(context);
+    }
+
     constructor(cube) {
         super(cube);
         this._originalState = new WeakMap();

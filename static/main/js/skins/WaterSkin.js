@@ -372,6 +372,10 @@ function mkVolumeMat() {
 // ─── WaterSkin ────────────────────────────────────────────────────────────────
 
 export class WaterSkin extends BaseSkin {
+    static createPreview(context = {}) {
+        return BaseSkin.createPreview(context);
+    }
+
     constructor(cube) {
         super(cube);
         this.fillLevel = cube.config.runtime?.water?.fillLevel ?? 0.62;
