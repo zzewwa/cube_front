@@ -127,6 +127,11 @@ const createTextTexture = (text, options = {}) => {
 };
 
 const initRoomLive = () => {
+    // Remove legacy telemetry widget nodes if stale markup is still cached by the client.
+    document.querySelectorAll('#platform-pulse, .platform-pulse, [data-platform-pulse]').forEach((node) => {
+        node.remove();
+    });
+
     const payloadNode = document.getElementById('room-live-payload');
     const stage = document.querySelector('[data-room-live-stage]');
     if (!payloadNode || !stage) {
@@ -264,6 +269,16 @@ const initRoomLive = () => {
         roundedRadius: 0.12,
         metalness: 0.2,
         roughness: 0.92,
+    };
+
+    const formatSpeedLabel = (value) => {
+        if (value <= 0) return 'без анимации';
+        if (value <= 8) return 'молниеносно';
+        if (value <= 15) return 'быстро';
+        if (value <= 25) return 'средне';
+        if (value <= 35) return 'нормально';
+        if (value <= 50) return 'медленно';
+        return 'плавно';
     };
 
     const cubesByUser = new Map();
@@ -675,8 +690,8 @@ const initRoomLive = () => {
             skinInput.value = settingsState.skinId;
         }
         if (speedInput && speedValue) {
-            speedInput.value = String(settingsState.speed);
-            speedValue.textContent = String(settingsState.speed);
+            speedInput.value = String(Math.round(settingsState.speed));
+            speedValue.textContent = formatSpeedLabel(settingsState.speed);
         }
         if (rotateInput && rotateValue) {
             rotateInput.value = String(settingsState.rotateSensitivity);
@@ -758,6 +773,10 @@ const initRoomLive = () => {
         };
         settingsState.skinId = String(valueOr(persistedSettings.skinId, settingsState.skinId));
         settingsState.speed = Number(valueOr(persistedSettings.speed, settingsState.speed));
+        if (!Number.isFinite(settingsState.speed)) {
+            settingsState.speed = 30;
+        }
+        settingsState.speed = Math.max(0, Math.round(settingsState.speed));
         settingsState.rotateSensitivity = Number(valueOr(persistedSettings.rotateSensitivity, settingsState.rotateSensitivity));
         settingsState.cubeNetVisible = Boolean(valueOr(persistedSettings.cubeNetVisible, settingsState.cubeNetVisible));
         settingsState.lanternOpacity = Number(valueOr(persistedSettings.lanternOpacity, settingsState.lanternOpacity));
@@ -1494,8 +1513,8 @@ const initRoomLive = () => {
             sendSelfState();
         });
 
-        onRange(speedInput, speedValue, (value) => String(Math.round(value)), (value) => {
-            settingsState.speed = value;
+        onRange(speedInput, speedValue, (value) => formatSpeedLabel(value), (value) => {
+            settingsState.speed = Math.max(0, Math.round(value));
         });
 
         onRange(rotateInput, rotateValue, (value) => value.toFixed(2), (value) => {

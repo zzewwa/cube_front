@@ -65,4 +65,16 @@ export class BaseSkin {
      * @param {object} _params - skin-specific parameter bag
      */
     setParams(_params) {}
+
+    /**
+     * Build a skin preview inside an external container.
+     * @param {{ previewFactory?: Function }} context
+     * @returns {{ destroy?: Function }|null}
+     */
+    static createPreview(context = {}) {
+        if (typeof context.previewFactory !== 'function') {
+            return null;
+        }
+        return context.previewFactory();
+    }
 }
