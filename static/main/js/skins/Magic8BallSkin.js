@@ -7,6 +7,10 @@ import { BaseSkin } from './BaseSkin.js';
  * preserving material names so cube logic and remapping continue to work.
  */
 export class Magic8BallSkin extends BaseSkin {
+    static createPreview(context = {}) {
+        return BaseSkin.createPreview(context);
+    }
+
     constructor(cube) {
         super(cube);
         this._visualMaterialsByMeshId = new Map();

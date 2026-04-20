@@ -5,6 +5,10 @@ import { BaseSkin } from './BaseSkin.js';
  * Serves as the default / fallback skin.
  */
 export class ClassicSkin extends BaseSkin {
+    static createPreview(context = {}) {
+        return BaseSkin.createPreview(context);
+    }
+
     apply() {
         for (const mats of this.cube.materialsByObjectId.values()) {
             for (const mat of mats) {
